@@ -1,0 +1,124 @@
+@import "tailwindcss";
+
+:root {
+  /* Background */
+  --bg-primary: #FAF8F4;
+  --bg-surface: #FFFEF5;
+  --bg-elevated: #FFFFFF;
+  --bg-muted: #F3F4F6;
+  --bg-dark: #282623;
+  --bg-overlay: #00000015;
+
+  /* Text */
+  --text-primary: #292524;
+  --text-secondary: #78716C;
+  --text-tertiary: #A8A29E;
+  --text-muted: #D6D3D1;
+
+  /* Accent */
+  --accent-primary: #FFD600;
+  --accent-primary-light: #FFD60020;
+  --accent-secondary: #9B8ACB;
+
+  /* Border */
+  --border-strong: #2D2A20;
+  --border-subtle: #E7E5E4;
+
+  /* Stone */
+  --stone-50: #FAFAF9;
+  --stone-100: #F5F5F4;
+  --stone-200: #E7E5E4;
+  --stone-300: #D6D3D1;
+  --stone-400: #A8A29E;
+  --stone-500: #78716C;
+  --stone-600: #57534E;
+  --stone-700: #44403C;
+  --stone-800: #292524;
+
+  /* Emerald */
+  --emerald-50: #ECFDF5;
+  --emerald-100: #D1FAE5;
+  --emerald-500: #10B981;
+  --emerald-700: #047857;
+
+  /* Amber */
+  --amber-50: #FFFBEB;
+  --amber-400: #FBBF24;
+
+  /* Radius */
+  --radius-sm: 4px;
+  --radius-md: 14px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+
+  /* Shadow */
+  --shadow-card: 4px 4px 0px #282623;
+  --shadow-subtle: 0 8px 18px #00000010;
+
+  /* Font */
+  --font-primary: "Inter", sans-serif;
+}
+
+@theme inline {
+  --color-bg-primary: var(--bg-primary);
+  --color-bg-surface: var(--bg-surface);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-bg-muted: var(--bg-muted);
+  --color-bg-dark: var(--bg-dark);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary: var(--text-tertiary);
+  --color-accent-primary: var(--accent-primary);
+  --color-accent-primary-light: var(--accent-primary-light);
+  --color-accent-secondary: var(--accent-secondary);
+  --color-border-strong: var(--border-strong);
+  --color-border-subtle: var(--border-subtle);
+  --color-stone-50: var(--stone-50);
+  --color-stone-100: var(--stone-100);
+  --color-stone-200: var(--stone-200);
+  --color-stone-300: var(--stone-300);
+  --color-stone-400: var(--stone-400);
+  --color-stone-500: var(--stone-500);
+  --color-stone-800: var(--stone-800);
+  --color-emerald-50: var(--emerald-50);
+  --color-emerald-100: var(--emerald-100);
+  --color-emerald-500: var(--emerald-500);
+  --color-emerald-700: var(--emerald-700);
+  --color-amber-50: var(--amber-50);
+  --color-amber-400: var(--amber-400);
+  --font-sans: var(--font-primary);
+}
+
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-primary);
+}
+
+.action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: fit-content;
+  border: 1px solid var(--border-strong);
+  background: var(--accent-primary);
+  padding: 0.625rem 1rem;
+  font-size: 14px;
+  font-weight: 500;
+  color: #5C4A1F;
+  box-shadow: var(--shadow-card);
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.action-button:hover {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0px #282623;
+}
+
+.action-button:focus-visible {
+  outline: 2px solid var(--border-strong);
+  outline-offset: 2px;
+}
