@@ -35,7 +35,10 @@ export async function POST(request: Request, context: RouteContext) {
     }
 
     return NextResponse.json({
-      redirectTo: `/recipes/${recipeId}/history`,
+      redirectTo:
+        body.decision === 'approved'
+          ? `/recipes/${recipeId}/history`
+          : `/recipes/${recipeId}/bundles/${bundleId}/digest`,
     })
   } catch (error) {
     return NextResponse.json(
