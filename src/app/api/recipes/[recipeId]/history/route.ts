@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import {
   getApiRouteError,
   getHistoryData,
+  getProxySettingsFromRequest,
 } from '@/lib/server/cookrew-data'
 
 interface RouteContext {
@@ -11,7 +12,10 @@ interface RouteContext {
 export async function GET(_request: Request, context: RouteContext) {
   try {
     const { recipeId } = await context.params
-    const data = await getHistoryData(recipeId)
+    const data = await getHistoryData(
+      recipeId,
+      getProxySettingsFromRequest(_request)
+    )
 
     if (!data) {
       return NextResponse.json(

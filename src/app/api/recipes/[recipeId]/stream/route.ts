@@ -1,5 +1,8 @@
 import { subscribeToRecipeStream } from '@/lib/server/stream-hub'
-import { hasKrewHubProxy } from '@/lib/server/cookrew-data'
+import {
+  getProxySettingsFromRequest,
+  hasKrewHubProxy,
+} from '@/lib/server/cookrew-data'
 
 interface RouteContext {
   params: Promise<{ recipeId: string }>
@@ -15,12 +18,13 @@ function streamHeaders() {
 
 export async function GET(request: Request, context: RouteContext) {
   const { recipeId } = await context.params
+  const proxySettings = getProxySettingsFromRequest(request)
 
-  if (hasKrewHubProxy()) {
-    const baseUrl = process.env.KREWHUB_BASE_URL
+  if (hasKrewHubProxy(proxySettings)) {
+    const baseUrl = proxySettings.baseUrl
     const upstream = await fetch(`${baseUrl}/api/v1/recipes/${recipeId}/stream`, {
-      headers: process.env.KREWHUB_API_KEY
-        ? { 'X-API-Key': process.env.KREWHUB_API_KEY }
+      headers: proxySettings.apiKey
+        ? { 'X-API-Key': proxySettings.apiKey }
         : {},
       cache: 'no-store',
     })

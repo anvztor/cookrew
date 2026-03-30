@@ -2,12 +2,13 @@ import { NextResponse } from 'next/server'
 import {
   createRecipe,
   getApiRouteError,
+  getProxySettingsFromRequest,
   listCookbookData,
 } from '@/lib/server/cookrew-data'
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const data = await listCookbookData()
+    const data = await listCookbookData(getProxySettingsFromRequest(request))
     return NextResponse.json(data)
   } catch (error) {
     const apiError = getApiRouteError(error, 'Unable to load recipes')
@@ -20,6 +21,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const proxySettings = getProxySettingsFromRequest(request)
     const body = (await request.json()) as {
       name?: string
       repoUrl?: string
@@ -39,7 +41,7 @@ export async function POST(request: Request) {
       repoUrl: body.repoUrl.trim(),
       defaultBranch: body.defaultBranch?.trim() || 'main',
       createdBy: body.createdBy.trim(),
-    })
+    }, proxySettings)
 
     return NextResponse.json(recipe, { status: 201 })
   } catch (error) {

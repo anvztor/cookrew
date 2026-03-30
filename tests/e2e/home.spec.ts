@@ -1,6 +1,13 @@
 import { expect, test } from '@playwright/test'
 
 test.beforeEach(async ({ page }) => {
+  await page.context().addCookies([
+    {
+      name: 'cookrew_mode',
+      value: 'demo',
+      url: 'http://127.0.0.1:3210',
+    },
+  ])
   await page.goto('/api/demo/reset')
 })
 

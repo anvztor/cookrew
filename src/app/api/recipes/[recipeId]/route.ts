@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import {
   getApiRouteError,
+  getProxySettingsFromRequest,
   getWorkspaceData,
 } from '@/lib/server/cookrew-data'
 
@@ -13,8 +14,9 @@ export async function GET(request: Request, context: RouteContext) {
     const { recipeId } = await context.params
     const { searchParams } = new URL(request.url)
     const bundleId = searchParams.get('bundleId')
+    const proxySettings = getProxySettingsFromRequest(request)
 
-    const data = await getWorkspaceData(recipeId, bundleId)
+    const data = await getWorkspaceData(recipeId, bundleId, proxySettings)
     if (!data) {
       return NextResponse.json({ error: 'Recipe not found.' }, { status: 404 })
     }

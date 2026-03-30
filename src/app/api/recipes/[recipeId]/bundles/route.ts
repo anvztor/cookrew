@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import {
   createBundle,
   getApiRouteError,
+  getProxySettingsFromRequest,
 } from '@/lib/server/cookrew-data'
 
 interface RouteContext {
@@ -11,6 +12,7 @@ interface RouteContext {
 export async function POST(request: Request, context: RouteContext) {
   try {
     const { recipeId } = await context.params
+    const proxySettings = getProxySettingsFromRequest(request)
     const body = (await request.json()) as {
       prompt?: string
       requestedBy?: string
@@ -28,7 +30,7 @@ export async function POST(request: Request, context: RouteContext) {
       prompt: body.prompt.trim(),
       requestedBy: body.requestedBy.trim(),
       taskTitles: body.taskTitles ?? [],
-    })
+    }, proxySettings)
 
     return NextResponse.json(result, { status: 201 })
   } catch (error) {
