@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server'
-import { getWorkspaceData } from '@/lib/server/cookrew-data'
+import {
+  getApiRouteError,
+  getWorkspaceData,
+} from '@/lib/server/cookrew-data'
 
 interface RouteContext {
   params: Promise<{ recipeId: string }>
@@ -18,9 +21,10 @@ export async function GET(request: Request, context: RouteContext) {
 
     return NextResponse.json(data)
   } catch (error) {
+    const apiError = getApiRouteError(error, 'Unable to load workspace')
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unable to load workspace' },
-      { status: 500 }
+      { error: apiError.error },
+      { status: apiError.status }
     )
   }
 }

@@ -161,8 +161,68 @@ const DEFAULT_HEADERS = {
   'Content-Type': 'application/json',
 }
 
+export class KrewHubRequestError extends Error {
+  readonly status: number
+
+  constructor(message: string, status: number) {
+    super(message)
+    this.name = 'KrewHubRequestError'
+    this.status = status
+  }
+}
+
 export function hasKrewHubProxy(): boolean {
   return Boolean(process.env.KREWHUB_BASE_URL)
+}
+
+async function readKrewHubError(response: Response): Promise<string> {
+  const detail = await response.text()
+  if (!detail) {
+    return `KrewHub request failed with ${response.status}`
+  }
+
+  try {
+    const parsed = JSON.parse(detail) as { detail?: string; error?: string }
+    if (typeof parsed.detail === 'string' && parsed.detail.trim()) {
+      return parsed.detail
+    }
+    if (typeof parsed.error === 'string' && parsed.error.trim()) {
+      return parsed.error
+    }
+  } catch {
+    // Fall back to the raw body for non-JSON upstream errors.
+  }
+
+  return detail
+}
+
+async function nullOnNotFound<T>(promise: Promise<T>): Promise<T | null> {
+  try {
+    return await promise
+  } catch (error) {
+    if (error instanceof KrewHubRequestError && error.status === 404) {
+      return null
+    }
+
+    throw error
+  }
+}
+
+export function getApiRouteError(
+  error: unknown,
+  fallbackMessage: string
+): { error: string; status: number } {
+  if (error instanceof KrewHubRequestError) {
+    return {
+      error: error.message,
+      status: error.status,
+    }
+  }
+
+  return {
+    error: error instanceof Error ? error.message : fallbackMessage,
+    status: 500,
+  }
 }
 
 function normalizeRecipe(recipe: RawRecipe): Recipe {
@@ -308,8 +368,10 @@ async function requestKrewHub<T>(
   })
 
   if (!response.ok) {
-    const detail = await response.text()
-    throw new Error(detail || `KrewHub request failed with ${response.status}`)
+    throw new KrewHubRequestError(
+      await readKrewHubError(response),
+      response.status
+    )
   }
 
   return (await response.json()) as T
@@ -416,7 +478,7 @@ export async function createRecipe(input: CreateRecipeInput): Promise<Recipe> {
 async function loadBundleDetailsFromKrewHub(bundleId: string): Promise<BundleWithDetails | null> {
   const [bundleResponse, digestResponse] = await Promise.all([
     requestKrewHub<RawBundleDetailResponse>(`/bundles/${bundleId}`),
-    requestKrewHub<RawDigestResponse>(`/bundles/${bundleId}/digest`).catch(() => null),
+    nullOnNotFound(requestKrewHub<RawDigestResponse>(`/bundles/${bundleId}/digest`)),
   ])
 
   return {
@@ -451,7 +513,9 @@ export async function getWorkspaceData(
     }
   }
 
-  const detail = await requestKrewHub<RawRecipeDetailResponse>(`/recipes/${recipeId}`).catch(() => null)
+  const detail = await nullOnNotFound(
+    requestKrewHub<RawRecipeDetailResponse>(`/recipes/${recipeId}`)
+  )
   if (!detail) {
     return null
   }
@@ -518,8 +582,8 @@ export async function getDigestReviewData(
   }
 
   const [recipeDetail, bundleDetail] = await Promise.all([
-    requestKrewHub<RawRecipeDetailResponse>(`/recipes/${recipeId}`).catch(() => null),
-    loadBundleDetailsFromKrewHub(bundleId).catch(() => null),
+    nullOnNotFound(requestKrewHub<RawRecipeDetailResponse>(`/recipes/${recipeId}`)),
+    nullOnNotFound(loadBundleDetailsFromKrewHub(bundleId)),
   ])
 
   if (!recipeDetail || !bundleDetail || !bundleDetail.digest) {
@@ -552,9 +616,9 @@ export async function decideDigest(
       decided_by: input.decidedBy,
       note: input.note,
     }),
-  }).catch(() => null)
+  })
 
-  return response ? normalizeDigest(response.digest) : null
+  return normalizeDigest(response.digest)
 }
 
 export async function getHistoryData(recipeId: string): Promise<HistoryData | null> {
@@ -578,7 +642,9 @@ export async function getHistoryData(recipeId: string): Promise<HistoryData | nu
     }
   }
 
-  const detail = await requestKrewHub<RawRecipeDetailResponse>(`/recipes/${recipeId}`).catch(() => null)
+  const detail = await nullOnNotFound(
+    requestKrewHub<RawRecipeDetailResponse>(`/recipes/${recipeId}`)
+  )
   if (!detail) {
     return null
   }

@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server'
-import { createBundle } from '@/lib/server/cookrew-data'
+import {
+  createBundle,
+  getApiRouteError,
+} from '@/lib/server/cookrew-data'
 
 interface RouteContext {
   params: Promise<{ recipeId: string }>
@@ -29,9 +32,10 @@ export async function POST(request: Request, context: RouteContext) {
 
     return NextResponse.json(result, { status: 201 })
   } catch (error) {
+    const apiError = getApiRouteError(error, 'Unable to create bundle')
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unable to create bundle' },
-      { status: 500 }
+      { error: apiError.error },
+      { status: apiError.status }
     )
   }
 }

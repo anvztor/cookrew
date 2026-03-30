@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import {
   createRecipe,
+  getApiRouteError,
   listCookbookData,
 } from '@/lib/server/cookrew-data'
 
@@ -9,9 +10,10 @@ export async function GET() {
     const data = await listCookbookData()
     return NextResponse.json(data)
   } catch (error) {
+    const apiError = getApiRouteError(error, 'Unable to load recipes')
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unable to load recipes' },
-      { status: 500 }
+      { error: apiError.error },
+      { status: apiError.status }
     )
   }
 }
@@ -41,9 +43,10 @@ export async function POST(request: Request) {
 
     return NextResponse.json(recipe, { status: 201 })
   } catch (error) {
+    const apiError = getApiRouteError(error, 'Unable to create recipe')
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unable to create recipe' },
-      { status: 500 }
+      { error: apiError.error },
+      { status: apiError.status }
     )
   }
 }

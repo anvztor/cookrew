@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server'
-import { getDigestReviewData } from '@/lib/server/cookrew-data'
+import {
+  getApiRouteError,
+  getDigestReviewData,
+} from '@/lib/server/cookrew-data'
 
 interface RouteContext {
   params: Promise<{ recipeId: string; bundleId: string }>
@@ -19,9 +22,10 @@ export async function GET(_request: Request, context: RouteContext) {
 
     return NextResponse.json(data)
   } catch (error) {
+    const apiError = getApiRouteError(error, 'Unable to load digest review')
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unable to load digest review' },
-      { status: 500 }
+      { error: apiError.error },
+      { status: apiError.status }
     )
   }
 }

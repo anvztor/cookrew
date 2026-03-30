@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server'
-import { decideDigest } from '@/lib/server/cookrew-data'
+import {
+  decideDigest,
+  getApiRouteError,
+} from '@/lib/server/cookrew-data'
 
 interface RouteContext {
   params: Promise<{ recipeId: string; bundleId: string }>
@@ -41,9 +44,10 @@ export async function POST(request: Request, context: RouteContext) {
           : `/recipes/${recipeId}/bundles/${bundleId}/digest`,
     })
   } catch (error) {
+    const apiError = getApiRouteError(error, 'Unable to save digest decision')
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unable to save digest decision' },
-      { status: 500 }
+      { error: apiError.error },
+      { status: apiError.status }
     )
   }
 }
