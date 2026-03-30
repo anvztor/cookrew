@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { defineConfig } from '@playwright/test'
 
-const PORT = 3000
+const PORT = 3210
 const WEB_SERVER_COMMAND = getWebServerCommand()
 
 function detectPackageManager() {
@@ -45,13 +45,13 @@ function detectPackageManager() {
 function getWebServerCommand() {
   switch (detectPackageManager()) {
     case 'bun':
-      return `bunx --bun next dev --hostname 127.0.0.1 --port ${PORT}`
+      return `bunx --bun next dev --webpack --hostname 127.0.0.1 --port ${PORT}`
     case 'pnpm':
-      return `pnpm exec next dev --hostname 127.0.0.1 --port ${PORT}`
+      return `pnpm exec next dev --webpack --hostname 127.0.0.1 --port ${PORT}`
     case 'yarn':
-      return `yarn exec next dev --hostname 127.0.0.1 --port ${PORT}`
+      return `yarn exec next dev --webpack --hostname 127.0.0.1 --port ${PORT}`
     default:
-      return `npx next dev --hostname 127.0.0.1 --port ${PORT}`
+      return `npx next dev --webpack --hostname 127.0.0.1 --port ${PORT}`
   }
 }
 

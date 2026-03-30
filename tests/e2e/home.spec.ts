@@ -1,61 +1,94 @@
 import { expect, test } from '@playwright/test'
 
-test.describe('Cookrew workspace', () => {
-  test('renders the main panels and defaults', async ({ page }) => {
+test.beforeEach(async ({ page }) => {
+  await page.goto('/api/demo/reset')
+})
+
+test.describe('Cookrew Phase 3', () => {
+  test('renders the cookbook route with recipe summaries and actions', async ({
+    page,
+  }) => {
     await page.goto('/')
 
-    await expect(page.getByRole('heading', { name: 'Cookbook' })).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Chat' })).toBeVisible()
     await expect(
-      page.getByRole('heading', { name: 'Bundle Timeline' })
+      page.getByRole('heading', { name: 'Recipes' })
+    ).toBeVisible()
+    await expect(
+      page.getByRole('button', { name: /platform-core/i }).first()
+    ).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Create Recipe' })).toBeVisible()
+    await expect(page.getByText('Selected Repo')).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Open' }).first()).toBeVisible()
+  })
+
+  test('creates a recipe from the cookbook flow and routes to the workspace', async ({
+    page,
+  }) => {
+    await page.goto('/')
+
+    await page.getByRole('button', { name: 'Create Recipe' }).click()
+    await expect(
+      page.getByRole('heading', { name: 'Create Recipe' })
     ).toBeVisible()
 
+    await page.getByLabel('Recipe Name').fill('reschedule-lab')
+    await page.getByLabel('Default Branch').fill('main')
+    await page
+      .getByLabel('Repository URL')
+      .fill('git@github.com:krew/reschedule-lab.git')
+    await page.getByLabel('Created By').fill('planner.local')
+    await page.getByRole('button', { name: 'Create Recipe' }).last().click()
+
+    await expect(page).toHaveURL(/\/recipes\/rec_/)
     await expect(
-      page.getByRole('button', { name: 'platform/core' })
-    ).toHaveAttribute('aria-pressed', 'true')
-    await expect(page.getByText('Selected: Growth Launch')).toBeVisible()
-    await expect(page.locator('body')).toContainText('[Bundle C]')
-    await expect(page.locator('body')).toContainText('[Bundle B]')
+      page.getByRole('heading', { name: 'reschedule-lab' })
+    ).toBeVisible()
+    await expect(page.getByText('Recipe Overview')).toBeVisible()
   })
 
-  test('changes the selected bundle and follows chat context', async ({ page }) => {
-    await page.goto('/')
+  test('opens a new bundle from the workspace composer', async ({ page }) => {
+    await page.goto('/recipes/rec_platform')
 
-    await page.getByRole('button', { name: /Create Spec/i }).click()
-
-    await expect(page.getByText('Selected: Create Spec')).toBeVisible()
     await expect(
-      page.getByRole('button', { name: /Create Spec/i })
-    ).toHaveAttribute('aria-pressed', 'true')
-    await expect(page.locator('body')).toContainText('[Bundle C]')
+      page.getByRole('heading', { name: 'platform-core' })
+    ).toBeVisible()
+    await expect(page.getByText('Event Feed', { exact: true })).toBeVisible()
+
+    await page
+      .getByLabel('Prompt')
+      .fill('Ship the reschedule workflow for Phase 3 with cookbook parity.')
+    await page.getByRole('button', { name: 'Add task seeds' }).click()
+    await page
+      .getByLabel('Optional Task Seeds')
+      .fill('Model the workspace state\nWire the new history route')
+    await page.getByRole('button', { name: 'Open Bundle' }).click()
+
+    await expect(page).toHaveURL(/bundle=/)
+    await expect(
+      page
+        .getByText('Ship the reschedule workflow for Phase 3 with cookbook parity.')
+        .first()
+    ).toBeVisible()
   })
 
-  test('switches the selected repo', async ({ page }) => {
-    await page.goto('/')
+  test('approves a digest and sees it appear in approved history', async ({
+    page,
+  }) => {
+    await page.goto('/recipes/rec_platform/bundles/bun_platform_pending/digest')
 
-    const coreRepo = page.getByRole('button', { name: 'platform/core' })
-    const mobileRepo = page.getByRole('button', { name: 'platform/mobile' })
+    await expect(
+      page.getByRole('heading', { name: 'platform-core' })
+    ).toBeVisible()
+    await expect(page.getByText('Digest Summary')).toBeVisible()
 
-    await expect(coreRepo).toHaveAttribute('aria-pressed', 'true')
-    await expect(mobileRepo).toHaveAttribute('aria-pressed', 'false')
+    await page.getByLabel('Reviewer').fill('qa.lead')
+    await page
+      .getByLabel('Decision Note')
+      .fill('Persist this digest and move it into durable history.')
+    await page.getByRole('button', { name: 'Approve Digest' }).click()
 
-    await mobileRepo.click()
-
-    await expect(coreRepo).toHaveAttribute('aria-pressed', 'false')
-    await expect(mobileRepo).toHaveAttribute('aria-pressed', 'true')
-  })
-
-  test('sends a chat message into the active bundle', async ({ page }) => {
-    await page.goto('/')
-
-    const draft = 'Follow up with final QA checklist'
-    const composer = page.getByRole('textbox')
-
-    await expect(composer).toBeVisible()
-    await composer.fill(draft)
-    await page.getByRole('button', { name: 'Send' }).click()
-
-    await expect(page.locator('body')).toContainText(`You: ${draft}`)
-    await expect(composer).toHaveValue('')
+    await expect(page).toHaveURL('/recipes/rec_platform/history')
+    await expect(page.getByText('bun_platform_pending')).toBeVisible()
+    await expect(page.getByText('Approved Digest Records')).toBeVisible()
   })
 })

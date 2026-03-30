@@ -1,57 +1,223 @@
-export interface Repo {
+export type Role = 'owner' | 'member' | 'agent'
+
+export type BundleStatus =
+  | 'open'
+  | 'claimed'
+  | 'cooked'
+  | 'blocked'
+  | 'cancelled'
+  | 'digested'
+  | 'rejected'
+
+export type TaskStatus =
+  | 'open'
+  | 'claimed'
+  | 'working'
+  | 'done'
+  | 'blocked'
+  | 'cancelled'
+
+export type EventType =
+  | 'prompt'
+  | 'plan'
+  | 'task_claimed'
+  | 'milestone'
+  | 'fact_added'
+  | 'code_pushed'
+  | 'digest_submitted'
+  | 'digest_approved'
+  | 'digest_rejected'
+
+export type AgentStatus = 'online' | 'offline' | 'busy'
+
+export type ActorType = 'human' | 'agent' | 'system'
+
+export type DigestDecision = 'pending' | 'approved' | 'rejected'
+
+export interface Recipe {
   readonly id: string
   readonly name: string
-  readonly icon: string
+  readonly repoUrl: string
+  readonly defaultBranch: string
+  readonly createdBy: string
+  readonly createdAt: string
 }
 
-export interface Cooker {
+export interface RecipeMember {
   readonly id: string
-  readonly emoji: string
+  readonly recipeId: string
+  readonly actorId: string
+  readonly actorType: 'human' | 'agent'
+  readonly role: Role
+  readonly joinedAt: string
+}
+
+export interface AgentPresence {
+  readonly agentId: string
+  readonly recipeId: string
   readonly displayName: string
-  readonly action: string
-}
-
-export type MessageTone = 'primary' | 'secondary'
-
-export interface ChatMessage {
-  readonly id: string
-  readonly bundleId: string
-  readonly bundleTag?: string
-  readonly timestamp: string
-  readonly emoji: string
-  readonly sender: string
-  readonly content: string
-  readonly tone: MessageTone
-}
-
-export type BundleTaskTone = 'slate' | 'amber' | 'blue' | 'emerald'
-
-export interface BundleTask {
-  readonly id: string
-  readonly label: string
-  readonly tone: BundleTaskTone
-}
-
-export interface WorkflowNode {
-  readonly id: string
-  readonly label: string
-}
-
-export interface WorkflowEdge {
-  readonly from: string
-  readonly to: string
+  readonly capabilities: readonly string[]
+  readonly status: AgentStatus
+  readonly lastHeartbeatAt: string
+  readonly currentTaskId: string | null
 }
 
 export interface Bundle {
   readonly id: string
+  readonly recipeId: string
+  readonly prompt: string
+  readonly status: BundleStatus
+  readonly createdBy: string
+  readonly createdAt: string
+  readonly claimedAt: string | null
+  readonly cookedAt: string | null
+  readonly digestedAt: string | null
+  readonly blockedReason: string | null
+}
+
+export interface Task {
+  readonly id: string
+  readonly bundleId: string
   readonly title: string
-  readonly taskCount: number
-  readonly sponsorCount: number
-  readonly tasks: readonly BundleTask[]
-  readonly workflow?: {
-    readonly nodes: readonly WorkflowNode[]
-    readonly edges: readonly WorkflowEdge[]
-  }
-  readonly opacity: number
-  readonly isActive: boolean
+  readonly description: string | null
+  readonly status: TaskStatus
+  readonly dependsOnTaskIds: readonly string[]
+  readonly claimedByAgentId: string | null
+  readonly claimedAt: string | null
+  readonly completedAt: string | null
+  readonly blockedReason: string | null
+}
+
+export interface FactRef {
+  readonly id: string
+  readonly claim: string
+  readonly sourceUrl: string | null
+  readonly sourceTitle: string | null
+  readonly capturedBy: string
+  readonly confidence: number | null
+}
+
+export interface CodeRef {
+  readonly repoUrl: string
+  readonly branch: string
+  readonly commitSha: string
+  readonly paths: readonly string[]
+}
+
+export interface Event {
+  readonly id: string
+  readonly recipeId: string
+  readonly bundleId: string
+  readonly taskId: string | null
+  readonly type: EventType
+  readonly actorId: string
+  readonly actorType: ActorType
+  readonly body: string
+  readonly facts: readonly FactRef[]
+  readonly codeRefs: readonly CodeRef[]
+  readonly createdAt: string
+  readonly expiresAt: string | null
+}
+
+export interface DigestTaskResult {
+  readonly taskId: string
+  readonly outcome: string
+}
+
+export interface Digest {
+  readonly id: string
+  readonly recipeId: string
+  readonly bundleId: string
+  readonly summary: string
+  readonly taskResults: readonly DigestTaskResult[]
+  readonly facts: readonly FactRef[]
+  readonly codeRefs: readonly CodeRef[]
+  readonly submittedBy: string
+  readonly submittedAt: string
+  readonly decision: DigestDecision
+  readonly decidedBy: string | null
+  readonly decidedAt: string | null
+}
+
+export interface BundleWithDetails {
+  readonly bundle: Bundle
+  readonly tasks: readonly Task[]
+  readonly events: readonly Event[]
+  readonly digest: Digest | null
+}
+
+export interface RecipeSummary {
+  readonly recipe: Recipe
+  readonly memberCount: number
+  readonly agentCount: number
+  readonly onlineAgentCount: number
+  readonly activeBundleCount: number
+  readonly owners: readonly string[]
+  readonly activeBundle: Bundle | null
+  readonly latestDigest: Digest | null
+}
+
+export interface CookbookData {
+  readonly recipes: readonly RecipeSummary[]
+  readonly selectedRecipeId: string | null
+}
+
+export interface WorkspaceData {
+  readonly recipe: Recipe
+  readonly members: readonly RecipeMember[]
+  readonly agents: readonly AgentPresence[]
+  readonly bundles: readonly Bundle[]
+  readonly recentDigests: readonly Digest[]
+  readonly selectedBundleId: string | null
+  readonly selectedBundle: BundleWithDetails | null
+}
+
+export interface DigestReviewData {
+  readonly recipe: Recipe
+  readonly selectedBundle: BundleWithDetails
+}
+
+export interface HistoryRecord {
+  readonly digest: Digest
+  readonly bundle: Bundle | null
+}
+
+export interface HistoryMetrics {
+  readonly approvedCount: number
+  readonly medianReviewMinutes: number | null
+  readonly mostRecentApprovalAt: string | null
+}
+
+export interface HistoryData {
+  readonly recipe: Recipe
+  readonly metrics: HistoryMetrics
+  readonly records: readonly HistoryRecord[]
+}
+
+export interface CreateRecipeInput {
+  readonly name: string
+  readonly repoUrl: string
+  readonly defaultBranch: string
+  readonly createdBy: string
+}
+
+export interface CreateBundleInput {
+  readonly prompt: string
+  readonly requestedBy: string
+  readonly taskTitles: readonly string[]
+}
+
+export interface DecisionInput {
+  readonly decision: Exclude<DigestDecision, 'pending'>
+  readonly decidedBy: string
+  readonly note?: string
+}
+
+export interface StreamEventPayload {
+  readonly event: string
+  readonly data: Record<string, unknown> | null
+}
+
+export interface ApiErrorShape {
+  readonly error: string
 }
