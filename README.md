@@ -22,6 +22,17 @@ bun run dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Live KrewHub
+
+To point Cookrew at a live local KrewHub on `http://127.0.0.1:8420`, create `.env.local` with:
+
+```bash
+KREWHUB_BASE_URL=http://127.0.0.1:8420
+KREWHUB_API_KEY=dev-api-key
+```
+
+Then restart `pnpm dev` and open either `http://localhost:3000` or `http://127.0.0.1:3000`.
+
 You can start editing the page in `src/app/page.tsx`. The page auto-updates as you edit the file.
 
 ## Testing
