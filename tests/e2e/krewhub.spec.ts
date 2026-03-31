@@ -5,8 +5,8 @@ import {
   type APIResponse,
 } from '@playwright/test'
 
-const KREWHUB_BASE_URL = process.env.PLAYWRIGHT_KREWHUB_BASE_URL
-const KREWHUB_API_KEY = process.env.PLAYWRIGHT_KREWHUB_API_KEY
+const KREWHUB_BASE_URL = process.env.PLAYWRIGHT_KREWHUB_BASE_URL ?? ''
+const KREWHUB_API_KEY = process.env.PLAYWRIGHT_KREWHUB_API_KEY ?? ''
 
 if (!KREWHUB_BASE_URL || !KREWHUB_API_KEY) {
   throw new Error('Expected KrewHub Playwright environment to be configured.')

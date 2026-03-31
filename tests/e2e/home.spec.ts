@@ -50,7 +50,8 @@ test.describe('Cookrew Phase 3', () => {
     await expect(
       page.getByRole('heading', { name: 'reschedule-lab' })
     ).toBeVisible()
-    await expect(page.getByText('Recipe Overview')).toBeVisible()
+    await expect(page.getByText('WORKSPACE')).toBeVisible()
+    await expect(page.getByText('Event Feed', { exact: true })).toBeVisible()
   })
 
   test('opens a new bundle from the workspace composer', async ({ page }) => {
@@ -76,6 +77,46 @@ test.describe('Cookrew Phase 3', () => {
         .getByText('Ship the reschedule workflow for Phase 3 with cookbook parity.')
         .first()
     ).toBeVisible()
+  })
+
+  test('supports dragging the workspace splitters to resize panes', async ({
+    page,
+  }) => {
+    await page.goto('/recipes/rec_platform')
+
+    const leftPane = page.getByTestId('workspace-left-pane')
+    const handle = page.getByLabel('Resize left sidebar')
+    const before = await leftPane.boundingBox()
+    const handleBox = await handle.boundingBox()
+
+    expect(before).not.toBeNull()
+    expect(handleBox).not.toBeNull()
+
+    if (!before || !handleBox) {
+      return
+    }
+
+    await page.mouse.move(
+      handleBox.x + handleBox.width / 2,
+      handleBox.y + handleBox.height / 2
+    )
+    await page.mouse.down()
+    await page.mouse.move(
+      handleBox.x + handleBox.width / 2 + 120,
+      handleBox.y + handleBox.height / 2,
+      { steps: 12 }
+    )
+    await page.mouse.up()
+
+    const after = await leftPane.boundingBox()
+
+    expect(after).not.toBeNull()
+
+    if (!after) {
+      return
+    }
+
+    expect(after.width).toBeGreaterThan(before.width + 80)
   })
 
   test('approves a digest and sees it appear in approved history', async ({
