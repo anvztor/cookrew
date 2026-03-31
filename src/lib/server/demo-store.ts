@@ -669,3 +669,136 @@ export function decideDigestInDemo(input: {
 
   return clone(updatedDigest)
 }
+
+export function rerunBundleInDemo(input: {
+  bundleId: string
+}): BundleWithDetails | null {
+  const state = readState()
+  const bundleIndex = state.bundles.findIndex((entry) => entry.id === input.bundleId)
+  if (bundleIndex < 0) {
+    return null
+  }
+
+  const blockedTasks = state.tasks.filter(
+    (entry) => entry.bundleId === input.bundleId && entry.status === 'blocked'
+  )
+  if (blockedTasks.length === 0) {
+    return null
+  }
+
+  const now = new Date().toISOString()
+  state.bundles[bundleIndex] = {
+    ...state.bundles[bundleIndex],
+    status: 'open',
+    blockedReason: null,
+  }
+
+  state.tasks = state.tasks.map((task) =>
+    task.bundleId === input.bundleId && task.status === 'blocked'
+      ? {
+          ...task,
+          status: 'open',
+          claimedByAgentId: null,
+          claimedAt: null,
+          completedAt: null,
+          blockedReason: null,
+        }
+      : task
+  )
+
+  const rerunEvent: Event = {
+    id: nextId('evt'),
+    recipeId: state.bundles[bundleIndex].recipeId,
+    bundleId: input.bundleId,
+    taskId: null,
+    type: 'plan',
+    actorId: 'system',
+    actorType: 'system',
+    body: `Re-run requested for ${blockedTasks.length} blocked task${
+      blockedTasks.length === 1 ? '' : 's'
+    }. Tasks reopened for reassignment.`,
+    facts: [],
+    codeRefs: [],
+    createdAt: now,
+    expiresAt: null,
+  }
+
+  state.events.unshift(rerunEvent)
+  writeState(state)
+
+  publishRecipeStream(state.bundles[bundleIndex].recipeId, 'task.updated', {
+    bundleId: input.bundleId,
+    taskId: blockedTasks[0].id,
+    status: 'open',
+  })
+
+  return getBundleWithDetails(input.bundleId)
+}
+
+export function submitDigestInDemo(input: {
+  bundleId: string
+  submittedBy: string
+  summary: string
+  taskResults: Digest['taskResults']
+  facts: Digest['facts']
+  codeRefs: Digest['codeRefs']
+}): Digest | null {
+  const state = readState()
+  const bundleIndex = state.bundles.findIndex((entry) => entry.id === input.bundleId)
+
+  if (bundleIndex < 0 || state.digests.some((entry) => entry.bundleId === input.bundleId)) {
+    return null
+  }
+
+  const bundle = state.bundles[bundleIndex]
+  const tasks = state.tasks.filter((entry) => entry.bundleId === input.bundleId)
+  const allTerminal = tasks.every((task) =>
+    ['done', 'blocked', 'cancelled'].includes(task.status)
+  )
+
+  if (!['cooked', 'blocked'].includes(bundle.status) || !allTerminal) {
+    return null
+  }
+
+  const submittedAt = new Date().toISOString()
+  const digest: Digest = {
+    id: nextId('dig'),
+    recipeId: bundle.recipeId,
+    bundleId: bundle.id,
+    summary: input.summary,
+    taskResults: clone(input.taskResults),
+    facts: clone(input.facts),
+    codeRefs: clone(input.codeRefs),
+    submittedBy: input.submittedBy,
+    submittedAt,
+    decision: 'pending',
+    decidedBy: null,
+    decidedAt: null,
+  }
+
+  const digestEvent: Event = {
+    id: nextId('evt'),
+    recipeId: bundle.recipeId,
+    bundleId: bundle.id,
+    taskId: null,
+    type: 'digest_submitted',
+    actorId: input.submittedBy,
+    actorType: 'agent',
+    body: `Digest submitted: ${input.summary.slice(0, 100)}`,
+    facts: [],
+    codeRefs: [],
+    createdAt: submittedAt,
+    expiresAt: null,
+  }
+
+  state.digests.unshift(digest)
+  state.events.unshift(digestEvent)
+  writeState(state)
+
+  publishRecipeStream(bundle.recipeId, 'bundle.digest_submitted', {
+    bundleId: bundle.id,
+    digestId: digest.id,
+  })
+
+  return clone(digest)
+}

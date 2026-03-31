@@ -192,16 +192,22 @@ test.describe('Cookrew with live KrewHub proxy', () => {
     await page.goto(`/recipes/${recipeId}`)
     await page
       .getByLabel('Prompt')
+      .first()
       .fill('Ship the live KrewHub-backed integration flow for Phase 4.')
     await page.getByRole('button', { name: 'Add task seeds' }).click()
     await page
       .getByLabel('Optional Task Seeds')
+      .first()
       .fill('Bring the agent online\nPost milestone evidence')
     await page.getByRole('button', { name: 'Open Bundle' }).click()
 
     await expect(page).toHaveURL(/bundle=bun_/)
-    await expect(page.getByText('Bring the agent online')).toBeVisible()
-    await expect(page.getByText('Post milestone evidence')).toBeVisible()
+    await expect(
+      page.getByTestId('workspace-right-pane').getByText('Bring the agent online')
+    ).toBeVisible()
+    await expect(
+      page.getByTestId('workspace-right-pane').getByText('Post milestone evidence')
+    ).toBeVisible()
 
     const bundleId = readBundleIdFromUrl(page.url())
 
@@ -212,7 +218,9 @@ test.describe('Cookrew with live KrewHub proxy', () => {
       capabilities: ['claim', 'milestones', 'digests'],
     })
 
-    await expect(page.getByText('Codex Phase 4')).toBeVisible()
+    await expect(
+      page.getByTestId('workspace-left-pane').getByText('Codex Phase 4')
+    ).toBeVisible()
 
     const bundleDetail = await getJson<{
       tasks: Array<{ id: string }>
@@ -222,7 +230,11 @@ test.describe('Cookrew with live KrewHub proxy', () => {
       agent_id: 'codex_phase4',
     })
 
-    await expect(page.getByText('Task Claimed')).toBeVisible()
+    await expect(
+      page
+        .getByTestId('workspace-center-pane')
+        .getByText("Task 'Bring the agent online' claimed.")
+    ).toBeVisible()
 
     await postJson(request, `/api/v1/tasks/${bundleDetail.tasks[0].id}/events`, {
       type: 'milestone',
@@ -246,7 +258,9 @@ test.describe('Cookrew with live KrewHub proxy', () => {
     })
 
     await expect(
-      page.getByText('Milestone posted from the live browser integration test.')
+      page
+        .getByTestId('workspace-center-pane')
+        .getByText('Milestone posted from the live browser integration test.')
     ).toBeVisible()
 
     for (const task of bundleDetail.tasks) {
@@ -254,8 +268,6 @@ test.describe('Cookrew with live KrewHub proxy', () => {
         status: 'done',
       })
     }
-
-    await expect(page.getByText('cooked').first()).toBeVisible()
 
     await postJson(request, `/api/v1/bundles/${bundleId}/digest`, {
       submitted_by: 'codex_phase4',
@@ -267,7 +279,7 @@ test.describe('Cookrew with live KrewHub proxy', () => {
       facts: [
         {
           id: 'fact_digest_browser_phase4',
-          claim: 'Digest review becomes available after the bundle is cooked.',
+          claim: 'Review can open against the live bundle trace and submitted digest.',
           captured_by: 'codex_phase4',
         },
       ],
@@ -281,7 +293,7 @@ test.describe('Cookrew with live KrewHub proxy', () => {
       ],
     })
 
-    const reviewLink = page.getByRole('link', { name: 'Review Digest' })
+    const reviewLink = page.getByRole('link', { name: 'Review' }).first()
     await expect(reviewLink).toBeVisible()
     await reviewLink.click()
 
@@ -317,7 +329,7 @@ test.describe('Cookrew with live KrewHub proxy', () => {
     await page.goto(`/recipes/${seed.recipeId}/bundles/${seed.bundleId}/digest`)
 
     await expect(
-      page.getByRole('heading', { name: seed.recipeName })
+      page.getByRole('heading', { name: 'Cookrew / Bundle Review' })
     ).toBeVisible()
     await expect(page.getByText('Digest Summary')).toBeVisible()
 

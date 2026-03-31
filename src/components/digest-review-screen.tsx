@@ -12,11 +12,95 @@ import {
 } from '@/components/status-badge'
 import { decideDigest, getDigestReviewData } from '@/lib/api'
 import { formatRelativeTime, formatTimestamp } from '@/lib/format'
-import type { DigestReviewData } from '@/types'
+import type {
+  BundleWithDetails,
+  CodeRef,
+  DigestReviewData,
+  FactRef,
+  Task,
+} from '@/types'
 
 interface DigestReviewScreenProps {
   readonly recipeId: string
   readonly bundleId: string
+}
+
+function buildTaskOutcome(
+  task: Task,
+  events: readonly BundleWithDetails['events'][number][]
+): string {
+  const latestTaskEvent = [...events]
+    .filter((event) => event.taskId === task.id && event.type !== 'task_claimed')
+    .sort(
+      (left, right) =>
+        new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
+    )[0]
+
+  if (latestTaskEvent?.body.trim()) {
+    return latestTaskEvent.body.trim()
+  }
+
+  if (task.status === 'blocked') {
+    return task.blockedReason?.trim()
+      ? `Blocked: ${task.blockedReason.trim()}`
+      : 'Task blocked.'
+  }
+
+  if (task.status === 'done') {
+    return 'Task completed.'
+  }
+
+  if (task.status === 'cancelled') {
+    return 'Task cancelled.'
+  }
+
+  return `Task is ${task.status}.`
+}
+
+function dedupeFacts(facts: readonly FactRef[]): FactRef[] {
+  const seen = new Set<string>()
+  const unique: FactRef[] = []
+
+  for (const fact of facts) {
+    const key = fact.id || [
+      fact.claim,
+      fact.sourceUrl ?? '',
+      fact.sourceTitle ?? '',
+      fact.capturedBy,
+    ].join('::')
+
+    if (seen.has(key)) {
+      continue
+    }
+
+    seen.add(key)
+    unique.push(fact)
+  }
+
+  return unique
+}
+
+function dedupeCodeRefs(codeRefs: readonly CodeRef[]): CodeRef[] {
+  const seen = new Set<string>()
+  const unique: CodeRef[] = []
+
+  for (const codeRef of codeRefs) {
+    const key = [
+      codeRef.repoUrl,
+      codeRef.branch,
+      codeRef.commitSha,
+      codeRef.paths.join('::'),
+    ].join('::')
+
+    if (seen.has(key)) {
+      continue
+    }
+
+    seen.add(key)
+    unique.push(codeRef)
+  }
+
+  return unique
 }
 
 export function DigestReviewScreen({
@@ -94,15 +178,33 @@ export function DigestReviewScreen({
 
   const selectedBundle = data?.selectedBundle ?? null
   const digest = selectedBundle?.digest ?? null
-  const reviewFlags = digest && selectedBundle
+  const reviewFacts = selectedBundle
+    ? dedupeFacts(
+        digest?.facts ?? selectedBundle.events.flatMap((event) => event.facts)
+      )
+    : []
+  const reviewCodeRefs = selectedBundle
+    ? dedupeCodeRefs(
+        digest?.codeRefs ?? selectedBundle.events.flatMap((event) => event.codeRefs)
+      )
+    : []
+  const taskOutcomes = selectedBundle
+    ? selectedBundle.tasks.map((task) => ({
+        taskId: task.id,
+        outcome:
+          digest?.taskResults.find((entry) => entry.taskId === task.id)?.outcome ??
+          buildTaskOutcome(task, selectedBundle.events),
+      }))
+    : []
+  const reviewFlags = selectedBundle
     ? [
         selectedBundle.tasks.some((task) => task.status === 'blocked')
           ? 'Contains blocked task outcomes that need a deliberate decision.'
           : null,
-        digest.facts.length < 2
+        reviewFacts.length < 2
           ? 'Evidence pack is thin. Consider waiting for more fact references.'
           : null,
-        digest.codeRefs.length === 0
+        reviewCodeRefs.length === 0
           ? 'No code references were attached to this digest.'
           : null,
       ].filter(Boolean)
@@ -114,10 +216,10 @@ export function DigestReviewScreen({
         <header className="page-header">
           <div className="flex flex-col gap-1">
             <h1 className="page-title">
-              Cookrew / Digest Review
+              Cookrew / Bundle Review
             </h1>
             <p className="text-[13px] font-medium text-text-secondary">
-              Review and decision required for bundle persistence.
+              Inspect task traces, fact refs, code refs, and any submitted digest.
             </p>
           </div>
 
@@ -141,14 +243,14 @@ export function DigestReviewScreen({
 
         {isLoading ? (
           <div className="p-6 text-sm text-text-secondary">
-            Loading digest review…
+            Loading bundle review…
           </div>
         ) : error ? (
           <div className="p-6 text-sm font-medium text-rose-600">{error}</div>
-        ) : !selectedBundle || !digest ? (
+        ) : !selectedBundle ? (
           <div className="p-6">
             <div className="empty-state">
-              No digest is available for this bundle yet.
+              No review data is available for this bundle yet.
             </div>
           </div>
         ) : (
@@ -158,7 +260,9 @@ export function DigestReviewScreen({
                 <section className="panel p-4 md:p-5">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <p className="text-[18px] font-bold text-text-primary">Digest Summary</p>
+                      <p className="text-[18px] font-bold text-text-primary">
+                        {digest ? 'Digest Summary' : 'Live Bundle Trace'}
+                      </p>
                       <h2 className="text-[28px] font-bold text-text-primary">
                         Bundle {selectedBundle.bundle.id}
                       </h2>
@@ -166,35 +270,52 @@ export function DigestReviewScreen({
 
                     <div className="flex flex-wrap gap-2">
                       <BundleStatusBadge status={selectedBundle.bundle.status} />
-                      <DecisionBadge decision={digest.decision} />
+                      {digest ? (
+                        <DecisionBadge decision={digest.decision} />
+                      ) : (
+                        <span className="status-badge tone-slate">Awaiting digest</span>
+                      )}
                     </div>
                   </div>
 
-                  <p className="mt-4 text-sm leading-7">{digest.summary}</p>
+                  <p className="mt-4 text-sm leading-7">
+                    {digest
+                      ? digest.summary
+                      : `${selectedBundle.bundle.prompt} Review is available before digest submission so you can inspect the live trace, facts, and code refs as work unfolds.`}
+                  </p>
+
+                  {digest ? null : (
+                    <div className="mt-4 panel-muted p-3 text-sm">
+                      No digest has been submitted yet. This page is showing the current bundle
+                      trace and evidence set.
+                    </div>
+                  )}
 
                   <div className="mt-5 grid gap-3 md:grid-cols-4">
                     <div className="flex flex-col gap-[6px] border border-border-strong bg-bg-surface p-3">
                       <p className="text-[13px] font-bold text-text-primary">Task Results</p>
                       <p className="text-[28px] font-bold text-text-primary">
-                        {digest.taskResults.length}
+                        {taskOutcomes.length}
                       </p>
                     </div>
                     <div className="flex flex-col gap-[6px] border border-border-strong bg-bg-surface p-3">
                       <p className="text-[13px] font-bold text-text-primary">Fact References</p>
                       <p className="text-[28px] font-bold text-text-primary">
-                        {digest.facts.length}
+                        {reviewFacts.length}
                       </p>
                     </div>
                     <div className="flex flex-col gap-[6px] border border-border-strong bg-bg-surface p-3">
                       <p className="text-[13px] font-bold text-text-primary">Code References</p>
                       <p className="text-[28px] font-bold text-text-primary">
-                        {digest.codeRefs.length}
+                        {reviewCodeRefs.length}
                       </p>
                     </div>
                     <div className="flex flex-col gap-[6px] border border-border-strong bg-bg-surface p-3">
-                      <p className="text-[13px] font-bold text-text-primary">Submitted</p>
+                      <p className="text-[13px] font-bold text-text-primary">
+                        {digest ? 'Submitted' : 'Trace Status'}
+                      </p>
                       <p className="text-[14px] font-bold text-text-primary">
-                        {formatRelativeTime(digest.submittedAt)}
+                        {digest ? formatRelativeTime(digest.submittedAt) : 'Live'}
                       </p>
                     </div>
                   </div>
@@ -204,7 +325,7 @@ export function DigestReviewScreen({
                   <p className="mb-4 text-[18px] font-bold text-text-primary">Task Outcomes</p>
                   <div className="space-y-3">
                     {selectedBundle.tasks.map((task) => {
-                      const result = digest.taskResults.find(
+                      const result = taskOutcomes.find(
                         (entry) => entry.taskId === task.id
                       )
 
@@ -229,7 +350,11 @@ export function DigestReviewScreen({
                   <div className="panel p-4 md:p-5">
                     <p className="mb-4 text-[18px] font-bold text-text-primary">Fact References</p>
                     <div className="space-y-3">
-                      {digest.facts.map((fact) => (
+                      {reviewFacts.length === 0 ? (
+                        <div className="panel-muted p-3 text-sm">
+                          No fact references have been captured for this bundle yet.
+                        </div>
+                      ) : reviewFacts.map((fact) => (
                         <div key={fact.id} className="panel-muted p-3">
                           <p className="font-medium">{fact.claim}</p>
                           <p className="tiny-copy mt-1">
@@ -249,7 +374,11 @@ export function DigestReviewScreen({
                   <div className="panel p-4 md:p-5">
                     <p className="mb-4 text-[18px] font-bold text-text-primary">Code References</p>
                     <div className="space-y-3">
-                      {digest.codeRefs.map((codeRef, index) => (
+                      {reviewCodeRefs.length === 0 ? (
+                        <div className="panel-muted p-3 text-sm">
+                          No code references have been attached to this bundle yet.
+                        </div>
+                      ) : reviewCodeRefs.map((codeRef, index) => (
                         <div
                           key={`${codeRef.commitSha}-${codeRef.branch}-${index}`}
                           className="panel-muted p-3"
@@ -295,61 +424,82 @@ export function DigestReviewScreen({
                 <p className="text-[18px] font-bold text-text-primary mb-3">Decision</p>
                 <div className="space-y-3 text-sm">
                   <div className="panel-muted p-3">
-                    <p className="text-[13px] font-bold text-text-primary">Submitted By</p>
-                    <p>{digest.submittedBy}</p>
-                    <p className="tiny-copy mt-1">
-                      {formatTimestamp(digest.submittedAt)}
+                    <p className="text-[13px] font-bold text-text-primary">
+                      {digest ? 'Submitted By' : 'Review Status'}
                     </p>
+                    {digest ? (
+                      <>
+                        <p>{digest.submittedBy}</p>
+                        <p className="tiny-copy mt-1">
+                          {formatTimestamp(digest.submittedAt)}
+                        </p>
+                      </>
+                    ) : (
+                      <p>Awaiting agent-submitted digest before a decision can be recorded.</p>
+                    )}
                   </div>
                   <div className="panel-muted p-3">
                     <p className="text-[13px] font-bold text-text-primary">Bundle Status</p>
                     <BundleStatusBadge status={selectedBundle.bundle.status} />
                   </div>
-                  <label className="block">
-                    <span className="field-label">Reviewer</span>
-                    <input
-                      value={reviewer}
-                      onChange={(event) => setReviewer(event.target.value)}
-                      className="text-input"
-                    />
-                  </label>
-                  <label className="block">
-                    <span className="field-label">Decision Note</span>
-                    <textarea
-                      value={note}
-                      onChange={(event) => setNote(event.target.value)}
-                      className="text-area"
-                      placeholder="Capture the merge note or what still needs work."
-                    />
-                  </label>
+                  {digest ? (
+                    <>
+                      <label className="block">
+                        <span className="field-label">Reviewer</span>
+                        <input
+                          value={reviewer}
+                          onChange={(event) => setReviewer(event.target.value)}
+                          className="text-input"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="field-label">Decision Note</span>
+                        <textarea
+                          value={note}
+                          onChange={(event) => setNote(event.target.value)}
+                          className="text-area"
+                          placeholder="Capture the merge note or what still needs work."
+                        />
+                      </label>
+                    </>
+                  ) : null}
                 </div>
 
-                <div className="button-row mt-4">
-                  <button
-                    type="button"
-                    onClick={() => void handleDecision('approved')}
-                    className="button-base button-primary"
-                    disabled={isSubmitting || digest.decision !== 'pending'}
-                  >
-                    <Check size={16} />
-                    Approve Digest
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleDecision('rejected')}
-                    className="button-base button-danger"
-                    disabled={isSubmitting || digest.decision !== 'pending'}
-                  >
-                    <X size={16} />
-                    Reject Changes
-                  </button>
-                </div>
+                {digest ? (
+                  <>
+                    <div className="button-row mt-4">
+                      <button
+                        type="button"
+                        onClick={() => void handleDecision('approved')}
+                        className="button-base button-primary"
+                        disabled={isSubmitting || digest.decision !== 'pending'}
+                      >
+                        <Check size={16} />
+                        Approve Digest
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleDecision('rejected')}
+                        className="button-base button-danger"
+                        disabled={isSubmitting || digest.decision !== 'pending'}
+                      >
+                        <X size={16} />
+                        Reject Changes
+                      </button>
+                    </div>
 
-                {digest.decision !== 'pending' ? (
+                    {digest.decision !== 'pending' ? (
+                      <p className="tiny-copy mt-3">
+                        This digest already has a recorded decision.
+                      </p>
+                    ) : null}
+                  </>
+                ) : (
                   <p className="tiny-copy mt-3">
-                    This digest already has a recorded decision.
+                    Review is available now, but approval stays disabled until a digest is
+                    submitted.
                   </p>
-                ) : null}
+                )}
               </div>
 
               <div className="flex flex-col gap-3 border border-border-strong bg-bg-surface p-4">

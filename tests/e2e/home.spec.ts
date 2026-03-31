@@ -18,7 +18,7 @@ test.describe('Cookrew Phase 3', () => {
     await page.goto('/')
 
     await expect(
-      page.getByRole('heading', { name: 'Recipes' })
+      page.getByRole('heading', { name: 'Cookrew / Cookbook' })
     ).toBeVisible()
     await expect(
       page.getByRole('button', { name: /platform-core/i }).first()
@@ -50,8 +50,14 @@ test.describe('Cookrew Phase 3', () => {
     await expect(
       page.getByRole('heading', { name: 'reschedule-lab' })
     ).toBeVisible()
-    await expect(page.getByText('WORKSPACE')).toBeVisible()
-    await expect(page.getByText('Event Feed', { exact: true })).toBeVisible()
+    await expect(
+      page.getByRole('heading', { name: 'COOKREW / RECIPE WORKSPACE' })
+    ).toBeVisible()
+    await expect(
+      page.getByTestId('workspace-center-pane').getByText('Event Feed', {
+        exact: true,
+      })
+    ).toBeVisible()
   })
 
   test('opens a new bundle from the workspace composer', async ({ page }) => {
@@ -60,14 +66,20 @@ test.describe('Cookrew Phase 3', () => {
     await expect(
       page.getByRole('heading', { name: 'platform-core' })
     ).toBeVisible()
-    await expect(page.getByText('Event Feed', { exact: true })).toBeVisible()
+    await expect(
+      page.getByTestId('workspace-center-pane').getByText('Event Feed', {
+        exact: true,
+      })
+    ).toBeVisible()
 
     await page
       .getByLabel('Prompt')
+      .first()
       .fill('Ship the reschedule workflow for Phase 3 with cookbook parity.')
     await page.getByRole('button', { name: 'Add task seeds' }).click()
     await page
       .getByLabel('Optional Task Seeds')
+      .first()
       .fill('Model the workspace state\nWire the new history route')
     await page.getByRole('button', { name: 'Open Bundle' }).click()
 
@@ -77,6 +89,34 @@ test.describe('Cookrew Phase 3', () => {
         .getByText('Ship the reschedule workflow for Phase 3 with cookbook parity.')
         .first()
     ).toBeVisible()
+  })
+
+  test('supports reviewing live traces and rerunning blocked tasks', async ({
+    page,
+  }) => {
+    await page.goto('/recipes/rec_growth?bundle=bun_growth_blocked')
+
+    const rightPane = page.getByTestId('workspace-right-pane')
+
+    await expect(rightPane.getByRole('button', { name: 'Re-Run' })).toBeVisible()
+    await expect(rightPane.getByRole('link', { name: 'Review' })).toBeVisible()
+
+    await rightPane.getByRole('link', { name: 'Review' }).click()
+
+    await expect(
+      page.getByRole('heading', { name: 'Cookrew / Bundle Review' })
+    ).toBeVisible()
+    await expect(page.getByText('Awaiting digest')).toBeVisible()
+    await expect(
+      page.getByText('No digest has been submitted yet. This page is showing the current bundle trace and evidence set.')
+    ).toBeVisible()
+
+    await page.getByRole('link', { name: 'Back to Workspace' }).click()
+    await expect(page).toHaveURL(/bundle=bun_growth_blocked/)
+
+    await rightPane.getByRole('button', { name: 'Re-Run' }).click()
+    await expect(rightPane.getByRole('button', { name: 'Re-Run' })).toHaveCount(0)
+    await expect(rightPane.getByRole('link', { name: 'Review' })).toBeVisible()
   })
 
   test('supports dragging the workspace splitters to resize panes', async ({
@@ -125,7 +165,7 @@ test.describe('Cookrew Phase 3', () => {
     await page.goto('/recipes/rec_platform/bundles/bun_platform_pending/digest')
 
     await expect(
-      page.getByRole('heading', { name: 'platform-core' })
+      page.getByRole('heading', { name: 'Cookrew / Bundle Review' })
     ).toBeVisible()
     await expect(page.getByText('Digest Summary')).toBeVisible()
 

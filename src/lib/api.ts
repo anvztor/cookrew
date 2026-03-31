@@ -82,6 +82,30 @@ export async function getDigestReviewData(
   )
 }
 
+export async function runDigest(
+  recipeId: string,
+  bundleId: string
+): Promise<{ redirectTo: string }> {
+  return requestJson<{ redirectTo: string }>(
+    `/api/recipes/${recipeId}/bundles/${bundleId}/digest`,
+    {
+      method: 'POST',
+    }
+  )
+}
+
+export async function rerunBundle(
+  recipeId: string,
+  bundleId: string
+): Promise<{ bundleId: string }> {
+  return requestJson<{ bundleId: string }>(
+    `/api/recipes/${recipeId}/bundles/${bundleId}/rerun`,
+    {
+      method: 'POST',
+    }
+  )
+}
+
 export async function decideDigest(
   recipeId: string,
   bundleId: string,

@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ArrowRight, Play } from 'lucide-react'
+import { ArrowRight, Eye, RotateCcw } from 'lucide-react'
 import { formatRelativeTime } from '@/lib/format'
 import { getTaskPresentation } from './helpers'
 import {
@@ -14,11 +14,13 @@ import type { WorkspaceRightPaneProps } from './types'
 export function WorkspaceRightPane({
   allDependencies,
   artifactCount,
+  blockedTaskCount,
   bundleSequence,
   completedTaskCount,
-  digestHref,
+  isRerunning,
   mobile = false,
-  onDigestAction,
+  onRerunAction,
+  reviewHref,
   selectedBundle,
   visibleDependencies,
   visibleTasks,
@@ -207,30 +209,54 @@ export function WorkspaceRightPane({
 
           <div className="flex items-center justify-between gap-3">
             <span className="text-[11px] font-medium text-[#57534E]">
-              Next scheduled: on demand
+              {reviewHref
+                ? 'Trace refs and code refs are available anytime'
+                : 'Select a bundle to inspect its trace'}
             </span>
 
-            {digestHref ? (
-              <Link
-                aria-label="Review Digest"
-                href={digestHref}
-                className={buttonClassName('secondary', 'sm')}
-              >
-                <Play size={16} className="text-[#9B8ACB]" />
-                Run Now
-              </Link>
-            ) : (
-              <button
-                type="button"
-                aria-label="Run Digest"
-                onClick={onDigestAction}
-                className={buttonClassName('secondary', 'sm')}
-              >
-                <Play size={16} className="text-[#9B8ACB]" />
-                Run Now
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              {blockedTaskCount > 0 ? (
+                <button
+                  type="button"
+                  aria-label="Re-Run"
+                  onClick={onRerunAction}
+                  disabled={isRerunning}
+                  className={buttonClassName('secondary', 'sm')}
+                >
+                  <RotateCcw size={16} className="text-[#9B8ACB]" />
+                  {isRerunning ? 'Re-Running…' : 'Re-Run'}
+                </button>
+              ) : null}
+
+              {reviewHref ? (
+                <Link
+                  aria-label="Review"
+                  href={reviewHref}
+                  className={buttonClassName('secondary', 'sm')}
+                >
+                  <Eye size={16} className="text-[#9B8ACB]" />
+                  Review
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  aria-label="Review"
+                  disabled
+                  className={buttonClassName('secondary', 'sm')}
+                >
+                  <Eye size={16} className="text-[#9B8ACB]" />
+                  Review
+                </button>
+              )}
+            </div>
           </div>
+
+          {blockedTaskCount === 0 ? null : (
+            <p className="text-[11px] font-medium text-[#D97706]">
+              {blockedTaskCount} blocked task{blockedTaskCount === 1 ? '' : 's'} can be reopened
+              for reassignment.
+            </p>
+          )}
         </div>
       </section>
     </aside>

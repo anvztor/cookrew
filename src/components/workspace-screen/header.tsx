@@ -1,12 +1,10 @@
 import Link from 'next/link'
-import { Search, Zap } from 'lucide-react'
+import { History, Search } from 'lucide-react'
 import type { WorkspaceHeaderProps } from './types'
 import { buttonClassName } from './shared'
 
 export function WorkspaceHeader({
-  digestHref,
-  hasDigest,
-  onDigestAction,
+  historyHref,
   onSearchChange,
   searchValue,
 }: WorkspaceHeaderProps) {
@@ -31,26 +29,14 @@ export function WorkspaceHeader({
           />
         </label>
 
-        {digestHref ? (
-          <Link
-            aria-label="Review Digest"
-            href={digestHref}
-            className={buttonClassName('primary')}
-          >
-            <Zap size={16} className="text-[#9B8ACB]" />
-            Run Digest
-          </Link>
-        ) : (
-          <button
-            type="button"
-            aria-label={hasDigest ? 'Review Digest' : 'Run Digest'}
-            onClick={onDigestAction}
-            className={buttonClassName('primary')}
-          >
-            <Zap size={16} className="text-[#9B8ACB]" />
-            Run Digest
-          </button>
-        )}
+        <Link
+          aria-label="Digests Tape"
+          href={historyHref}
+          className={buttonClassName('primary')}
+        >
+          <History size={16} className="text-[#9B8ACB]" />
+          Digests Tape
+        </Link>
       </div>
     </header>
   )

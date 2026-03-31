@@ -3,7 +3,7 @@
 import { useCallback, useDeferredValue, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Group as PanelGroup, Panel } from 'react-resizable-panels'
-import { createBundle, getWorkspaceData } from '@/lib/api'
+import { createBundle, getWorkspaceData, rerunBundle } from '@/lib/api'
 import { useRecipeStream } from '@/hooks/use-sse'
 import type { WorkspaceData } from '@/types'
 import {
@@ -34,6 +34,7 @@ export function WorkspaceScreen({ recipeId }: WorkspaceScreenProps) {
   const [taskSeedText, setTaskSeedText] = useState('')
   const [showTaskSeeds, setShowTaskSeeds] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isRerunning, setIsRerunning] = useState(false)
 
   const deferredWorkspaceSearch = useDeferredValue(workspaceSearch)
 
@@ -76,6 +77,11 @@ export function WorkspaceScreen({ recipeId }: WorkspaceScreenProps) {
 
   const query = deferredWorkspaceSearch.trim().toLowerCase()
   const allTasks = selectedBundle?.tasks ?? []
+  const blockedTaskCount = allTasks.filter((task) => task.status === 'blocked').length
+  const reviewHref = selectedBundle
+    ? `/recipes/${recipeId}/bundles/${selectedBundle.bundle.id}/digest`
+    : null
+  const historyHref = `/recipes/${recipeId}/history`
   const allDependencies = buildDependencyRows(allTasks)
   const participantCount =
     (data?.members.length ?? 0) +
@@ -165,31 +171,39 @@ export function WorkspaceScreen({ recipeId }: WorkspaceScreenProps) {
     }
   }
 
-  function handleDigestAction() {
+  async function handleRerunAction() {
     if (!selectedBundle) {
-      setError('Create or select a bundle before running a digest.')
+      setError('Create or select a bundle before rerunning blocked tasks.')
       return
     }
 
-    if (selectedBundle.digest) {
-      router.push(`/recipes/${recipeId}/bundles/${selectedBundle.bundle.id}/digest`)
+    if (blockedTaskCount === 0) {
+      setError('No blocked tasks are available to rerun.')
       return
     }
 
-    setError('This bundle does not have a digest yet.')
+    setError(null)
+    setIsRerunning(true)
+
+    try {
+      const result = await rerunBundle(recipeId, selectedBundle.bundle.id)
+      await load(result.bundleId, false)
+    } catch (submissionError) {
+      setError(
+        submissionError instanceof Error
+          ? submissionError.message
+          : 'Unable to rerun blocked tasks.'
+      )
+    } finally {
+      setIsRerunning(false)
+    }
   }
-
-  const digestHref = selectedBundle?.digest
-    ? `/recipes/${recipeId}/bundles/${selectedBundle.bundle.id}/digest`
-    : null
 
   if (isLoading) {
     return (
       <div className="flex min-h-screen flex-col bg-[#FAF8F4] text-[#2D2A20]">
         <WorkspaceHeader
-          digestHref={null}
-          hasDigest={Boolean(selectedBundle?.digest)}
-          onDigestAction={handleDigestAction}
+          historyHref={historyHref}
           onSearchChange={setWorkspaceSearch}
           searchValue={workspaceSearch}
         />
@@ -204,9 +218,7 @@ export function WorkspaceScreen({ recipeId }: WorkspaceScreenProps) {
     return (
       <div className="flex min-h-screen flex-col bg-[#FAF8F4] text-[#2D2A20]">
         <WorkspaceHeader
-          digestHref={null}
-          hasDigest={false}
-          onDigestAction={handleDigestAction}
+          historyHref={historyHref}
           onSearchChange={setWorkspaceSearch}
           searchValue={workspaceSearch}
         />
@@ -222,9 +234,7 @@ export function WorkspaceScreen({ recipeId }: WorkspaceScreenProps) {
   return (
     <div className="flex min-h-screen flex-col bg-[#FAF8F4] text-[#2D2A20]">
       <WorkspaceHeader
-        digestHref={digestHref}
-        hasDigest={Boolean(selectedBundle?.digest)}
-        onDigestAction={handleDigestAction}
+        historyHref={historyHref}
         onSearchChange={setWorkspaceSearch}
         searchValue={workspaceSearch}
       />
@@ -280,10 +290,12 @@ export function WorkspaceScreen({ recipeId }: WorkspaceScreenProps) {
             <WorkspaceRightPane
               allDependencies={allDependencies}
               artifactCount={artifactCount}
+              blockedTaskCount={blockedTaskCount}
               bundleSequence={bundleSequence}
               completedTaskCount={completedTaskCount}
-              digestHref={digestHref}
-              onDigestAction={handleDigestAction}
+              isRerunning={isRerunning}
+              onRerunAction={handleRerunAction}
+              reviewHref={reviewHref}
               selectedBundle={selectedBundle}
               testId="workspace-right-pane"
               visibleDependencies={visibleDependencies}
@@ -321,11 +333,13 @@ export function WorkspaceScreen({ recipeId }: WorkspaceScreenProps) {
         <WorkspaceRightPane
           allDependencies={allDependencies}
           artifactCount={artifactCount}
+          blockedTaskCount={blockedTaskCount}
           bundleSequence={bundleSequence}
           completedTaskCount={completedTaskCount}
-          digestHref={digestHref}
+          isRerunning={isRerunning}
           mobile
-          onDigestAction={handleDigestAction}
+          onRerunAction={handleRerunAction}
+          reviewHref={reviewHref}
           selectedBundle={selectedBundle}
           visibleDependencies={visibleDependencies}
           visibleTasks={visibleTasks}

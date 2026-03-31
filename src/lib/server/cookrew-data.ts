@@ -9,6 +9,8 @@ import {
   listBundles,
   listMembers,
   listRecipes,
+  rerunBundleInDemo,
+  submitDigestInDemo,
 } from '@/lib/server/demo-store'
 import { calculateMedian } from '@/lib/format'
 import { generateTaskSeeds, normalizeTaskSeeds } from '@/lib/task-seeds'
@@ -16,12 +18,14 @@ import type {
   AgentPresence,
   Bundle,
   BundleWithDetails,
+  CodeRef,
   CookbookData,
   CreateBundleInput,
   CreateRecipeInput,
   DecisionInput,
   Digest,
   DigestReviewData,
+  FactRef,
   HistoryData,
   HistoryRecord,
   Recipe,
@@ -548,6 +552,162 @@ async function loadBundleDetailsFromKrewHub(
   }
 }
 
+function canSubmitDigest(bundleDetail: BundleWithDetails): boolean {
+  return (
+    ['cooked', 'blocked'].includes(bundleDetail.bundle.status) &&
+    bundleDetail.tasks.every((task) =>
+      ['done', 'blocked', 'cancelled'].includes(task.status)
+    )
+  )
+}
+
+function pickDigestSubmitter(bundleDetail: BundleWithDetails): string {
+  const latestAgentActor = [...bundleDetail.events]
+    .sort(
+      (left, right) =>
+        new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
+    )
+    .find((event) => event.actorType === 'agent')?.actorId
+
+  if (latestAgentActor) {
+    return latestAgentActor
+  }
+
+  const taskOwner = bundleDetail.tasks.find((task) => task.claimedByAgentId)?.claimedByAgentId
+  return taskOwner ?? 'cookrew-digest'
+}
+
+function buildTaskOutcome(
+  task: BundleWithDetails['tasks'][number],
+  events: readonly BundleWithDetails['events'][number][]
+): string {
+  const latestTaskEvent = [...events]
+    .filter(
+      (event) => event.taskId === task.id && event.type !== 'task_claimed'
+    )
+    .sort(
+      (left, right) =>
+        new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
+    )[0]
+
+  if (latestTaskEvent?.body.trim()) {
+    return latestTaskEvent.body.trim()
+  }
+
+  if (task.status === 'blocked') {
+    return task.blockedReason?.trim()
+      ? `Blocked: ${task.blockedReason.trim()}`
+      : 'Task blocked.'
+  }
+
+  if (task.status === 'done') {
+    return 'Task completed.'
+  }
+
+  if (task.status === 'cancelled') {
+    return 'Task cancelled.'
+  }
+
+  return `Task is ${task.status}.`
+}
+
+function dedupeFacts(facts: readonly FactRef[]): FactRef[] {
+  const seen = new Set<string>()
+  const unique: FactRef[] = []
+
+  for (const fact of facts) {
+    const key = fact.id || [
+      fact.claim,
+      fact.sourceUrl ?? '',
+      fact.sourceTitle ?? '',
+      fact.capturedBy,
+    ].join('::')
+    if (seen.has(key)) {
+      continue
+    }
+
+    seen.add(key)
+    unique.push(fact)
+  }
+
+  return unique
+}
+
+function dedupeCodeRefs(codeRefs: readonly CodeRef[]): CodeRef[] {
+  const seen = new Set<string>()
+  const unique: CodeRef[] = []
+
+  for (const codeRef of codeRefs) {
+    const key = [
+      codeRef.repoUrl,
+      codeRef.branch,
+      codeRef.commitSha,
+      codeRef.paths.join('::'),
+    ].join('::')
+    if (seen.has(key)) {
+      continue
+    }
+
+    seen.add(key)
+    unique.push(codeRef)
+  }
+
+  return unique
+}
+
+function buildDigestSummary(
+  bundleDetail: BundleWithDetails,
+  facts: readonly FactRef[],
+  codeRefs: readonly CodeRef[]
+): string {
+  const doneCount = bundleDetail.tasks.filter((task) => task.status === 'done').length
+  const blockedCount = bundleDetail.tasks.filter((task) => task.status === 'blocked').length
+  const cancelledCount = bundleDetail.tasks.filter(
+    (task) => task.status === 'cancelled'
+  ).length
+
+  const taskSummary =
+    blockedCount > 0
+      ? `The bundle reached a terminal state with ${doneCount} completed task${
+          doneCount === 1 ? '' : 's'
+        } and ${blockedCount} blocked task${blockedCount === 1 ? '' : 's'}.`
+      : `The bundle completed with ${doneCount} finished task${
+          doneCount === 1 ? '' : 's'
+        }.`
+
+  const cancelledSummary =
+    cancelledCount > 0
+      ? ` ${cancelledCount} task${cancelledCount === 1 ? ' was' : 's were'} cancelled.`
+      : ''
+
+  const evidenceSummary =
+    facts.length > 0 || codeRefs.length > 0
+      ? ` Attached evidence includes ${facts.length} fact reference${
+          facts.length === 1 ? '' : 's'
+        } and ${codeRefs.length} code reference${codeRefs.length === 1 ? '' : 's'}.`
+      : ' No fact or code references were attached to the current bundle events.'
+
+  return `${bundleDetail.bundle.prompt.trim()} ${taskSummary}${cancelledSummary}${evidenceSummary}`.trim()
+}
+
+function buildDigestSubmission(bundleDetail: BundleWithDetails) {
+  const facts = dedupeFacts(bundleDetail.events.flatMap((event) => event.facts))
+  const codeRefs = dedupeCodeRefs(
+    bundleDetail.events.flatMap((event) => event.codeRefs)
+  )
+
+  return {
+    submittedBy: pickDigestSubmitter(bundleDetail),
+    summary: buildDigestSummary(bundleDetail, facts, codeRefs),
+    taskResults: bundleDetail.tasks.map((task) => ({
+      taskId: task.id,
+      outcome: buildTaskOutcome(task, bundleDetail.events),
+    })),
+    facts,
+    codeRefs,
+  }
+}
+
 export async function getWorkspaceData(
   recipeId: string,
   requestedBundleId?: string | null,
@@ -644,7 +804,7 @@ export async function getDigestReviewData(
   if (!hasKrewHubProxy(proxySettings)) {
     const recipe = getRecipe(recipeId)
     const selectedBundle = getBundleWithDetails(bundleId)
-    if (!recipe || !selectedBundle || !selectedBundle.digest) {
+    if (!recipe || !selectedBundle) {
       return null
     }
 
@@ -662,13 +822,121 @@ export async function getDigestReviewData(
     nullOnNotFound(loadBundleDetailsFromKrewHub(bundleId, proxySettings)),
   ])
 
-  if (!recipeDetail || !bundleDetail || !bundleDetail.digest) {
+  if (!recipeDetail || !bundleDetail) {
     return null
   }
 
   return {
     recipe: normalizeRecipe(recipeDetail.recipe),
     selectedBundle: bundleDetail,
+  }
+}
+
+export async function rerunBundle(
+  recipeId: string,
+  bundleId: string,
+  proxySettings: ProxySettings = getProxySettings()
+): Promise<BundleWithDetails | null> {
+  if (!hasKrewHubProxy(proxySettings)) {
+    const updated = rerunBundleInDemo({ bundleId })
+    if (!updated || updated.bundle.recipeId !== recipeId) {
+      return null
+    }
+    return updated
+  }
+
+  const bundleDetail = await nullOnNotFound(
+    loadBundleDetailsFromKrewHub(bundleId, proxySettings)
+  )
+  if (!bundleDetail || bundleDetail.bundle.recipeId !== recipeId) {
+    return null
+  }
+
+  await requestKrewHub<{ bundle: RawBundle }>(
+    `/bundles/${bundleId}/rerun`,
+    {
+      method: 'POST',
+    },
+    proxySettings
+  )
+
+  return loadBundleDetailsFromKrewHub(bundleId, proxySettings)
+}
+
+export async function submitDigest(
+  recipeId: string,
+  bundleId: string,
+  proxySettings: ProxySettings = getProxySettings()
+): Promise<Digest | null> {
+  const bundleDetail = hasKrewHubProxy(proxySettings)
+    ? await nullOnNotFound(loadBundleDetailsFromKrewHub(bundleId, proxySettings))
+    : getBundleWithDetails(bundleId)
+
+  if (!bundleDetail || bundleDetail.bundle.recipeId !== recipeId) {
+    return null
+  }
+
+  if (bundleDetail.digest) {
+    return bundleDetail.digest
+  }
+
+  if (!canSubmitDigest(bundleDetail)) {
+    throw new KrewHubRequestError(
+      'Complete or block every task before running a digest.',
+      400
+    )
+  }
+
+  const submission = buildDigestSubmission(bundleDetail)
+
+  if (!hasKrewHubProxy(proxySettings)) {
+    return submitDigestInDemo(submissionToDemoInput(bundleId, submission))
+  }
+
+  const response = await requestKrewHub<RawDigestResponse>(
+    `/bundles/${bundleId}/digest`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        submitted_by: submission.submittedBy,
+        summary: submission.summary,
+        task_results: submission.taskResults.map((result) => ({
+          task_id: result.taskId,
+          outcome: result.outcome,
+        })),
+        facts: submission.facts.map((fact) => ({
+          id: fact.id,
+          claim: fact.claim,
+          source_url: fact.sourceUrl,
+          source_title: fact.sourceTitle,
+          captured_by: fact.capturedBy,
+          confidence: fact.confidence,
+        })),
+        code_refs: submission.codeRefs.map((codeRef) => ({
+          repo_url: codeRef.repoUrl,
+          branch: codeRef.branch,
+          commit_sha: codeRef.commitSha,
+          paths: codeRef.paths,
+        })),
+      }),
+    },
+    proxySettings
+  )
+
+  return normalizeDigest(response.digest)
+}
+
+function submissionToDemoInput(
+  bundleId: string,
+  submission: ReturnType<typeof buildDigestSubmission>
+) {
+  return {
+    bundleId,
+    submittedBy: submission.submittedBy,
+    summary: submission.summary,
+    taskResults: submission.taskResults,
+    facts: submission.facts,
+    codeRefs: submission.codeRefs,
   }
 }
 

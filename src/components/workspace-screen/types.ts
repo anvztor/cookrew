@@ -49,9 +49,7 @@ export interface WorkspaceScreenProps {
 }
 
 export interface WorkspaceHeaderProps {
-  readonly digestHref: string | null
-  readonly hasDigest: boolean
-  readonly onDigestAction: () => void
+  readonly historyHref: string
   readonly onSearchChange: (value: string) => void
   readonly searchValue: string
 }
@@ -86,11 +84,13 @@ export interface WorkspaceCenterPaneProps {
 export interface WorkspaceRightPaneProps {
   readonly allDependencies: readonly DependencyRow[]
   readonly artifactCount: number
+  readonly blockedTaskCount: number
   readonly bundleSequence: number
   readonly completedTaskCount: number
-  readonly digestHref: string | null
+  readonly isRerunning: boolean
   readonly mobile?: boolean
-  readonly onDigestAction: () => void
+  readonly onRerunAction: () => void
+  readonly reviewHref: string | null
   readonly selectedBundle: BundleWithDetails | null
   readonly visibleDependencies: readonly DependencyRow[]
   readonly visibleTasks: readonly Task[]
