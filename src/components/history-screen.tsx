@@ -117,7 +117,7 @@ export function HistoryScreen({ recipeId }: HistoryScreenProps) {
             <button
               type="button"
               onClick={handleExport}
-              className="button-base button-primary"
+              className="button-base button-secondary"
               disabled={!data}
             >
               <Download size={16} />

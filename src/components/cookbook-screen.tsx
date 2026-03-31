@@ -252,8 +252,8 @@ export function CookbookScreen() {
                 </div>
               </div>
 
-              <div className="hidden border-b border-border-subtle bg-stone-100 px-4 py-3 text-xs font-bold uppercase tracking-[0.08em] text-text-secondary md:grid md:grid-cols-[minmax(0,2.4fr)_110px_120px_150px_210px]">
-                <span>Recipe</span>
+              <div className="hidden border-b border-border-subtle bg-stone-100 px-4 py-3 text-xs font-bold uppercase tracking-[0.08em] text-text-secondary md:grid md:grid-cols-[minmax(0,2.4fr)_110px_120px_150px_140px]">
+                <span>Name</span>
                 <span>Status</span>
                 <span>Owner</span>
                 <span>Last Updated</span>
@@ -285,7 +285,7 @@ export function CookbookScreen() {
                     return (
                       <article
                         key={summary.recipe.id}
-                        className="table-row md:grid-cols-[minmax(0,2.4fr)_110px_120px_150px_210px]"
+                        className="table-row md:grid-cols-[minmax(0,2.4fr)_110px_120px_150px_140px]"
                         onMouseEnter={() => setSelectedRecipeId(summary.recipe.id)}
                       >
                         <button
