@@ -118,17 +118,15 @@ export function WorkspaceScreen({ recipeId }: WorkspaceScreenProps) {
   }
 
   return (
-    <div className="page-shell">
-      <div className="page-frame min-h-[calc(100vh-40px)] overflow-hidden">
+    <div className="flex min-h-screen flex-col bg-bg-primary font-sans text-text-primary">
+      <div className="flex flex-1 flex-col overflow-hidden">
         <header className="page-header">
-          <div>
-            <p className="page-kicker">Cookrew / Recipe Workspace</p>
+          <div className="flex flex-col gap-1">
             <h1 className="page-title">
-              {data?.recipe.name ?? 'Workspace'}
+              COOKREW / RECIPE WORKSPACE
             </h1>
-            <p className="page-copy">
-              Presence, event feed, and the selected bundle all stay in view so
-              orchestration work can move without losing context.
+            <p className="text-[13px] font-medium text-text-secondary">
+              Presence, event feed, and the selected bundle all stay in view.
             </p>
           </div>
 
@@ -163,9 +161,9 @@ export function WorkspaceScreen({ recipeId }: WorkspaceScreenProps) {
             <div className="empty-state">This recipe could not be found.</div>
           </div>
         ) : (
-          <div className="grid min-h-[calc(100vh-137px)] gap-px bg-border-strong xl:grid-cols-[280px_minmax(0,1fr)_360px]">
-            <aside className="surface-grid bg-bg-surface p-4">
-              <div className="panel p-4">
+          <div className="flex flex-1 overflow-hidden bg-bg-primary">
+            <aside className="flex w-[260px] flex-shrink-0 flex-col gap-5 border-r border-border-strong bg-bg-surface p-5 overflow-y-auto">
+              <div className="flex flex-col gap-3 border border-border-strong bg-bg-surface p-4">
                 <p className="mb-3 flex items-center gap-2 text-sm font-semibold">
                   <FolderGit2 size={16} />
                   Recipe Overview
@@ -176,13 +174,13 @@ export function WorkspaceScreen({ recipeId }: WorkspaceScreenProps) {
                     <p className="break-all">{data.recipe.repoUrl}</p>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-                    <div className="metric-card">
+                    <div className="flex flex-col gap-[6px] border border-border-strong bg-bg-surface p-3">
                       <p className="field-label mb-1">Default Branch</p>
                       <p className="text-lg font-semibold">
                         {data.recipe.defaultBranch}
                       </p>
                     </div>
-                    <div className="metric-card">
+                    <div className="flex flex-col gap-[6px] border border-border-strong bg-bg-surface p-3">
                       <p className="field-label mb-1">Created</p>
                       <p className="text-sm font-semibold">
                         {formatRelativeTime(data.recipe.createdAt)}
@@ -192,7 +190,7 @@ export function WorkspaceScreen({ recipeId }: WorkspaceScreenProps) {
                 </div>
               </div>
 
-              <div className="panel p-4">
+              <div className="flex flex-col gap-3 border border-border-strong bg-bg-surface p-4">
                 <p className="mb-3 flex items-center gap-2 text-sm font-semibold">
                   <Users size={16} />
                   Members
@@ -210,7 +208,7 @@ export function WorkspaceScreen({ recipeId }: WorkspaceScreenProps) {
                 </div>
               </div>
 
-              <div className="panel p-4">
+              <div className="flex flex-col gap-3 border border-border-strong bg-bg-surface p-4">
                 <p className="mb-3 flex items-center gap-2 text-sm font-semibold">
                   <RadioTower size={16} />
                   Agent Presence
@@ -235,7 +233,7 @@ export function WorkspaceScreen({ recipeId }: WorkspaceScreenProps) {
                 </div>
               </div>
 
-              <div className="panel p-4">
+              <div className="flex flex-col gap-3 border border-border-strong bg-bg-surface p-4">
                 <p className="mb-3 flex items-center gap-2 text-sm font-semibold">
                   <Clock3 size={16} />
                   Recent Digests
@@ -263,7 +261,7 @@ export function WorkspaceScreen({ recipeId }: WorkspaceScreenProps) {
               </div>
             </aside>
 
-            <main className="flex min-h-0 flex-col bg-bg-primary">
+            <main className="flex-1 flex flex-col overflow-hidden bg-bg-primary">
               <div className="flex items-center justify-between border-b border-border-strong px-4 py-4 md:px-6">
                 <div>
                   <p className="text-lg font-semibold">Event Feed</p>
@@ -288,7 +286,7 @@ export function WorkspaceScreen({ recipeId }: WorkspaceScreenProps) {
                 {selectedBundle ? (
                   <div className="space-y-3">
                     {selectedBundle.events.map((event) => (
-                      <article key={event.id} className="panel p-4">
+                      <article key={event.id} className="flex flex-col gap-3 border border-border-strong bg-bg-surface p-4">
                         <div className="flex flex-wrap items-center justify-between gap-3">
                           <div className="flex flex-wrap items-center gap-2">
                             <EventTypeBadge type={event.type} />
@@ -327,7 +325,7 @@ export function WorkspaceScreen({ recipeId }: WorkspaceScreenProps) {
               </div>
 
               <div className="border-t border-border-strong bg-bg-surface px-4 py-4 md:px-6">
-                <div className="panel p-4">
+                <div className="flex flex-col gap-3 border border-border-strong bg-bg-surface p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold">Prompt Composer</p>
@@ -403,8 +401,8 @@ export function WorkspaceScreen({ recipeId }: WorkspaceScreenProps) {
               </div>
             </main>
 
-            <aside className="surface-grid bg-bg-surface p-4">
-              <div className="panel p-4">
+            <aside className="flex w-[260px] flex-shrink-0 flex-col gap-5 border-r border-border-strong bg-bg-surface p-5 overflow-y-auto">
+              <div className="flex flex-col gap-3 border border-border-strong bg-bg-surface p-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold">Bundles</p>
@@ -443,7 +441,7 @@ export function WorkspaceScreen({ recipeId }: WorkspaceScreenProps) {
               </div>
 
               {selectedBundle ? (
-                <div className="panel p-4">
+                <div className="flex flex-col gap-3 border border-border-strong bg-bg-surface p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold">Selected Bundle</p>

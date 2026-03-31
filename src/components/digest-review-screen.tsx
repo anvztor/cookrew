@@ -109,17 +109,15 @@ export function DigestReviewScreen({
     : []
 
   return (
-    <div className="page-shell">
-      <div className="page-frame min-h-[calc(100vh-40px)] overflow-hidden">
+    <div className="flex min-h-screen flex-col bg-bg-primary font-sans text-text-primary">
+      <div className="flex flex-1 flex-col overflow-hidden">
         <header className="page-header">
-          <div>
-            <p className="page-kicker">Cookrew / Digest Review</p>
+          <div className="flex flex-col gap-1">
             <h1 className="page-title">
-              {data?.recipe.name ?? 'Digest Review'}
+              Cookrew / Digest Review
             </h1>
-            <p className="page-copy">
-              Review the durable summary, task outcomes, facts, and code refs
-              before deciding whether this bundle should persist.
+            <p className="text-[13px] font-medium text-text-secondary">
+              Review and decision required for bundle persistence.
             </p>
           </div>
 
@@ -154,14 +152,14 @@ export function DigestReviewScreen({
             </div>
           </div>
         ) : (
-          <div className="grid gap-px bg-border-strong xl:grid-cols-[minmax(0,1fr)_340px]">
-            <main className="bg-bg-primary p-4 md:p-6">
+          <div className="flex flex-1 overflow-hidden bg-bg-primary">
+            <main className="flex-1 bg-bg-primary p-6 overflow-y-auto">
               <div className="surface-grid">
                 <section className="panel p-4 md:p-5">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <p className="field-label mb-2">Digest Summary</p>
-                      <h2 className="text-2xl font-semibold">
+                      <p className="text-[18px] font-bold text-text-primary">Digest Summary</p>
+                      <h2 className="text-[28px] font-bold text-text-primary">
                         Bundle {selectedBundle.bundle.id}
                       </h2>
                     </div>
@@ -175,27 +173,27 @@ export function DigestReviewScreen({
                   <p className="mt-4 text-sm leading-7">{digest.summary}</p>
 
                   <div className="mt-5 grid gap-3 md:grid-cols-4">
-                    <div className="metric-card">
-                      <p className="field-label mb-1">Task Results</p>
-                      <p className="text-3xl font-semibold">
+                    <div className="flex flex-col gap-[6px] border border-border-strong bg-bg-surface p-3">
+                      <p className="text-[13px] font-bold text-text-primary">Task Results</p>
+                      <p className="text-[28px] font-bold text-text-primary">
                         {digest.taskResults.length}
                       </p>
                     </div>
-                    <div className="metric-card">
-                      <p className="field-label mb-1">Fact References</p>
-                      <p className="text-3xl font-semibold">
+                    <div className="flex flex-col gap-[6px] border border-border-strong bg-bg-surface p-3">
+                      <p className="text-[13px] font-bold text-text-primary">Fact References</p>
+                      <p className="text-[28px] font-bold text-text-primary">
                         {digest.facts.length}
                       </p>
                     </div>
-                    <div className="metric-card">
-                      <p className="field-label mb-1">Code References</p>
-                      <p className="text-3xl font-semibold">
+                    <div className="flex flex-col gap-[6px] border border-border-strong bg-bg-surface p-3">
+                      <p className="text-[13px] font-bold text-text-primary">Code References</p>
+                      <p className="text-[28px] font-bold text-text-primary">
                         {digest.codeRefs.length}
                       </p>
                     </div>
-                    <div className="metric-card">
-                      <p className="field-label mb-1">Submitted</p>
-                      <p className="text-sm font-semibold">
+                    <div className="flex flex-col gap-[6px] border border-border-strong bg-bg-surface p-3">
+                      <p className="text-[13px] font-bold text-text-primary">Submitted</p>
+                      <p className="text-[14px] font-bold text-text-primary">
                         {formatRelativeTime(digest.submittedAt)}
                       </p>
                     </div>
@@ -203,7 +201,7 @@ export function DigestReviewScreen({
                 </section>
 
                 <section className="panel p-4 md:p-5">
-                  <p className="mb-4 text-lg font-semibold">Task Outcomes</p>
+                  <p className="mb-4 text-[18px] font-bold text-text-primary">Task Outcomes</p>
                   <div className="space-y-3">
                     {selectedBundle.tasks.map((task) => {
                       const result = digest.taskResults.find(
@@ -229,7 +227,7 @@ export function DigestReviewScreen({
 
                 <section className="grid gap-4 lg:grid-cols-2">
                   <div className="panel p-4 md:p-5">
-                    <p className="mb-4 text-lg font-semibold">Fact References</p>
+                    <p className="mb-4 text-[18px] font-bold text-text-primary">Fact References</p>
                     <div className="space-y-3">
                       {digest.facts.map((fact) => (
                         <div key={fact.id} className="panel-muted p-3">
@@ -249,7 +247,7 @@ export function DigestReviewScreen({
                   </div>
 
                   <div className="panel p-4 md:p-5">
-                    <p className="mb-4 text-lg font-semibold">Code References</p>
+                    <p className="mb-4 text-[18px] font-bold text-text-primary">Code References</p>
                     <div className="space-y-3">
                       {digest.codeRefs.map((codeRef, index) => (
                         <div
@@ -271,7 +269,7 @@ export function DigestReviewScreen({
                 </section>
 
                 <section className="panel p-4 md:p-5">
-                  <p className="mb-4 text-lg font-semibold">Relevant Timeline</p>
+                  <p className="mb-4 text-[18px] font-bold text-text-primary">Relevant Timeline</p>
                   <div className="space-y-3">
                     {selectedBundle.events.map((event) => (
                       <div key={event.id} className="panel-muted p-3">
@@ -292,19 +290,19 @@ export function DigestReviewScreen({
               </div>
             </main>
 
-            <aside className="surface-grid bg-bg-surface p-4">
-              <div className="panel p-4">
-                <p className="mb-3 text-sm font-semibold">Decision</p>
+            <aside className="flex w-[340px] flex-shrink-0 flex-col gap-5 border-l border-border-strong bg-bg-surface p-5 overflow-y-auto">
+              <div className="flex flex-col gap-3 border border-border-strong bg-bg-surface p-4">
+                <p className="text-[18px] font-bold text-text-primary mb-3">Decision</p>
                 <div className="space-y-3 text-sm">
                   <div className="panel-muted p-3">
-                    <p className="field-label mb-1">Submitted By</p>
+                    <p className="text-[13px] font-bold text-text-primary">Submitted By</p>
                     <p>{digest.submittedBy}</p>
                     <p className="tiny-copy mt-1">
                       {formatTimestamp(digest.submittedAt)}
                     </p>
                   </div>
                   <div className="panel-muted p-3">
-                    <p className="field-label mb-1">Bundle Status</p>
+                    <p className="text-[13px] font-bold text-text-primary">Bundle Status</p>
                     <BundleStatusBadge status={selectedBundle.bundle.status} />
                   </div>
                   <label className="block">
@@ -354,8 +352,8 @@ export function DigestReviewScreen({
                 ) : null}
               </div>
 
-              <div className="panel p-4">
-                <p className="mb-3 flex items-center gap-2 text-sm font-semibold">
+              <div className="flex flex-col gap-3 border border-border-strong bg-bg-surface p-4">
+                <p className="text-[18px] font-bold text-text-primary flex items-center gap-2">
                   <ShieldAlert size={16} />
                   Review Flags
                 </p>

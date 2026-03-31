@@ -96,13 +96,18 @@ select {
 
 .page-shell {
   min-height: 100vh;
-  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-primary);
 }
 
 .page-frame {
-  border: 1px solid var(--border-strong);
-  background: var(--bg-surface);
-  box-shadow: var(--shadow-card);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-primary);
+  border: none;
+  box-shadow: none;
 }
 
 .page-header {
@@ -112,22 +117,21 @@ select {
   justify-content: space-between;
   gap: 16px;
   border-bottom: 1px solid var(--border-strong);
-  background: color-mix(in srgb, var(--bg-surface) 78%, white);
+  background: var(--bg-surface);
   padding: 16px 20px;
 }
 
 .page-kicker {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-secondary);
+  display: none;
 }
 
 .page-title {
-  margin: 2px 0 0;
-  font-size: clamp(1.4rem, 1.1rem + 1vw, 2rem);
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  text-transform: uppercase;
   line-height: 1;
+  letter-spacing: 0.02em;
 }
 
 .page-copy {
@@ -139,9 +143,12 @@ select {
 }
 
 .panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   border: 1px solid var(--border-strong);
   background: var(--bg-surface);
-  box-shadow: var(--shadow-subtle);
+  padding: 16px;
 }
 
 .panel-muted {
@@ -164,11 +171,12 @@ select {
 .select-input {
   width: 100%;
   border: 1px solid var(--border-strong);
-  background: var(--bg-elevated);
+  background: var(--bg-surface);
   padding: 10px 12px;
+  font-size: 13px;
   color: var(--text-primary);
   outline: none;
-  transition: box-shadow 140ms ease, border-color 140ms ease;
+  transition: border-color 140ms ease;
 }
 
 .text-area {
@@ -194,14 +202,12 @@ select {
   justify-content: center;
   gap: 8px;
   border: 1px solid var(--border-strong);
-  padding: 10px 14px;
+  border-radius: 12px;
+  padding: 10px 16px;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1;
-  transition:
-    transform 140ms ease,
-    box-shadow 140ms ease,
-    background 140ms ease;
+  transition: transform 140ms ease, box-shadow 140ms ease;
 }
 
 .button-base:hover {
@@ -215,18 +221,19 @@ select {
 
 .button-primary {
   background: var(--accent-primary);
-  color: #5c4a1f;
-  box-shadow: var(--shadow-card);
+  color: #5C4A1F;
+  box-shadow: 4px 4px 0 var(--border-strong);
 }
 
 .button-primary:hover {
+  transform: translate(2px, 2px);
   box-shadow: 2px 2px 0 var(--border-strong);
 }
 
 .button-secondary {
   background: var(--bg-surface);
   color: var(--text-primary);
-  box-shadow: 3px 3px 0 rgb(45 42 32 / 0.12);
+  box-shadow: 4px 4px 0 var(--border-strong);
 }
 
 .button-danger {
@@ -256,21 +263,13 @@ select {
 .status-badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  border: 1px solid currentColor;
-  padding: 3px 8px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  gap: 4px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 500;
   text-transform: capitalize;
-}
-
-.status-badge::before {
-  height: 7px;
-  width: 7px;
-  border-radius: 9999px;
-  background: currentColor;
-  content: "";
 }
 
 .tone-slate {
@@ -331,6 +330,14 @@ select {
 
 @media (min-width: 960px) {
   .page-shell {
-    padding: 24px;
-  }
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-primary);
+}
+}
+
+.button-secondary:hover {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 var(--border-strong);
 }

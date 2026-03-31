@@ -88,17 +88,15 @@ export function HistoryScreen({ recipeId }: HistoryScreenProps) {
   }
 
   return (
-    <div className="page-shell">
-      <div className="page-frame min-h-[calc(100vh-40px)] overflow-hidden">
+    <div className="flex min-h-screen flex-col bg-bg-primary font-sans text-text-primary">
+      <div className="flex flex-1 flex-col overflow-hidden">
         <header className="page-header">
-          <div>
-            <p className="page-kicker">Cookrew / Approved Digest History</p>
+          <div className="flex flex-col gap-1">
             <h1 className="page-title">
-              {data?.recipe.name ?? 'Approved Digest History'}
+              Cookrew / Approved Digest History
             </h1>
-            <p className="page-copy">
-              Approved digests become the durable record for a recipe. Use this
-              view to review what was approved and when.
+            <p className="text-[13px] font-medium text-text-secondary">
+              Durable record only · Ephemeral events expire after 7 days
             </p>
           </div>
 
@@ -112,7 +110,7 @@ export function HistoryScreen({ recipeId }: HistoryScreenProps) {
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search digests, bundles, or prompt text…"
-                className="text-input pl-9"
+                className="w-full border border-border-strong bg-bg-surface px-3 py-2.5 pl-9 text-[13px] text-text-primary outline-none transition-colors focus:border-text-primary"
               />
             </label>
 
@@ -139,36 +137,36 @@ export function HistoryScreen({ recipeId }: HistoryScreenProps) {
             <div className="empty-state">History was not found.</div>
           </div>
         ) : (
-          <div className="grid min-h-[calc(100vh-137px)] gap-px bg-border-strong xl:grid-cols-[300px_minmax(0,1fr)]">
-            <aside className="surface-grid bg-bg-surface p-4">
-              <div className="panel p-4">
-                <p className="field-label mb-2">Recipe Metrics</p>
+          <div className="flex flex-1 overflow-hidden bg-bg-primary">
+            <aside className="flex w-[300px] flex-shrink-0 flex-col gap-5 border-r border-border-strong bg-bg-surface p-5 overflow-y-auto">
+              <div className="flex flex-col gap-3 border border-border-strong bg-bg-surface p-4">
+                <p className="text-[18px] font-bold text-text-primary">Recipe Metrics</p>
                 <div className="space-y-3">
-                  <div className="metric-card">
-                    <p className="field-label mb-1">Approved Digests</p>
-                    <p className="text-4xl font-semibold">
+                  <div className="flex flex-col gap-[6px] border border-border-strong bg-amber-50 p-3">
+                    <p className="text-[13px] font-bold text-text-primary">Approved Digests</p>
+                    <p className="text-[28px] font-bold text-text-primary">
                       {data.metrics.approvedCount}
                     </p>
                   </div>
-                  <div className="metric-card">
-                    <p className="field-label mb-1">Median Review Time</p>
-                    <p className="text-2xl font-semibold">
+                  <div className="flex flex-col gap-[6px] border border-border-strong bg-amber-50 p-3">
+                    <p className="text-[13px] font-bold text-text-primary">Median Review Time</p>
+                    <p className="text-[28px] font-bold text-text-primary">
                       {data.metrics.medianReviewMinutes === null
                         ? 'N/A'
                         : `${data.metrics.medianReviewMinutes}m`}
                     </p>
                   </div>
-                  <div className="metric-card">
-                    <p className="field-label mb-1">Most Recent Approval</p>
-                    <p className="text-sm font-semibold">
+                  <div className="flex flex-col gap-[6px] border border-border-strong bg-amber-50 p-3">
+                    <p className="text-[13px] font-bold text-text-primary">Most Recent Approval</p>
+                    <p className="text-[14px] font-bold text-text-primary">
                       {formatDateOnly(data.metrics.mostRecentApprovalAt)}
                     </p>
                   </div>
                 </div>
               </div>
 
-              <div className="panel p-4">
-                <p className="mb-3 flex items-center gap-2 text-sm font-semibold">
+              <div className="flex flex-col gap-3 border border-border-strong bg-bg-surface p-4">
+                <p className="text-[18px] font-bold text-text-primary flex items-center gap-2">
                   <FolderGit2 size={16} />
                   Recipe Context
                 </p>
@@ -188,10 +186,10 @@ export function HistoryScreen({ recipeId }: HistoryScreenProps) {
               </div>
             </aside>
 
-            <main className="bg-bg-primary p-4 md:p-6">
-              <div className="panel">
+            <main className="flex-1 bg-bg-primary p-6 overflow-y-auto">
+              <div className="flex flex-col border border-border-strong bg-bg-surface">
                 <div className="border-b border-border-strong px-4 py-4">
-                  <p className="text-lg font-semibold">Approved Digest Records</p>
+                  <p className="text-[18px] font-bold text-text-primary">Approved Digest Records</p>
                   <p className="tiny-copy mt-1">
                     {filteredRecords.length} approved digest
                     {filteredRecords.length === 1 ? '' : 's'} visible

@@ -104,16 +104,13 @@ export function CookbookScreen() {
   }
 
   return (
-    <div className="page-shell">
-      <div className="page-frame min-h-[calc(100vh-40px)] overflow-hidden">
+    <div className="flex min-h-screen flex-col bg-bg-primary font-sans text-text-primary">
+      <div className="flex flex-1 flex-col overflow-hidden">
         <header className="page-header">
-          <div>
-            <p className="page-kicker">Cookrew / Cookbook</p>
-            <h1 className="page-title">Recipes</h1>
-            <p className="page-copy">
-              Search the cookbook, inspect ownership and live agent presence,
-              then open the workspace that needs attention.
-            </p>
+          <div className="flex items-center gap-1">
+            <h1 className="text-[22px] font-bold uppercase leading-none text-text-primary tracking-wide">
+              Cookrew / Cookbook
+            </h1>
           </div>
 
           <div className="flex w-full flex-col gap-3 md:w-auto md:flex-row md:items-center">
@@ -126,7 +123,7 @@ export function CookbookScreen() {
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search recipes, repos, or owners…"
-                className="text-input pl-9"
+                className="w-full border border-border-strong bg-bg-surface px-3 py-2.5 pl-9 text-[13px] text-text-primary outline-none transition-colors focus:border-text-primary"
               />
             </label>
 
@@ -141,12 +138,12 @@ export function CookbookScreen() {
           </div>
         </header>
 
-        <div className="grid min-h-[calc(100vh-137px)] gap-px bg-border-strong lg:grid-cols-[280px_minmax(0,1fr)]">
-          <aside className="flex flex-col gap-4 bg-bg-surface p-4">
+        <div className="flex flex-1 overflow-hidden bg-bg-primary">
+          <aside className="flex w-[300px] flex-shrink-0 flex-col gap-5 border-r border-border-strong bg-bg-surface p-5 overflow-y-auto">
             {selectedSummary ? (
               <>
-                <div className="panel p-4">
-                  <p className="field-label mb-2">Selected Repo</p>
+                <div className="flex flex-col gap-3 border border-border-strong bg-bg-surface p-4">
+                  <p className="text-[18px] font-bold text-text-primary">Selected Repo</p>
                   <div className="flex items-start gap-3">
                     <div className="mt-1 rounded-full border border-border-strong bg-accent-primary-light p-2">
                       <FolderGit2 size={16} />
@@ -162,15 +159,15 @@ export function CookbookScreen() {
                   </div>
 
                   <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-                    <div className="metric-card">
-                      <p className="field-label mb-1">Default Branch</p>
-                      <p className="text-lg font-semibold">
+                    <div className="flex flex-col gap-[6px] border border-border-strong bg-bg-surface p-3">
+                      <p className="text-[13px] font-bold text-text-primary">Default Branch</p>
+                      <p className="text-[18px] font-bold text-text-primary">
                         {selectedSummary.recipe.defaultBranch}
                       </p>
                     </div>
-                    <div className="metric-card">
-                      <p className="field-label mb-1">Last Digest</p>
-                      <p className="text-sm font-semibold">
+                    <div className="flex flex-col gap-[6px] border border-border-strong bg-bg-surface p-3">
+                      <p className="text-[13px] font-bold text-text-primary">Last Digest</p>
+                      <p className="text-[14px] font-bold text-text-primary">
                         {selectedSummary.latestDigest
                           ? formatRelativeTime(selectedSummary.latestDigest.submittedAt)
                           : 'No approved digest yet'}
@@ -179,8 +176,8 @@ export function CookbookScreen() {
                   </div>
                 </div>
 
-                <div className="panel p-4">
-                  <p className="mb-3 flex items-center gap-2 text-sm font-semibold">
+                <div className="flex flex-col gap-3 border border-border-strong bg-bg-surface p-4">
+                  <p className="text-[18px] font-bold text-text-primary flex items-center gap-2">
                     <Users size={16} />
                     Team
                   </p>
@@ -194,14 +191,14 @@ export function CookbookScreen() {
                   </div>
                 </div>
 
-                <div className="panel p-4">
-                  <p className="mb-3 flex items-center gap-2 text-sm font-semibold">
+                <div className="flex flex-col gap-3 border border-border-strong bg-bg-surface p-4">
+                  <p className="text-[18px] font-bold text-text-primary flex items-center gap-2">
                     <Bot size={16} />
                     Online Agents
                   </p>
                   <div className="space-y-3">
-                    <div className="metric-card">
-                      <p className="text-3xl font-semibold">
+                    <div className="flex flex-col gap-[6px] border border-border-strong bg-bg-surface p-3">
+                      <p className="text-[28px] font-bold text-text-primary">
                         {selectedSummary.onlineAgentCount}
                       </p>
                       <p className="tiny-copy mt-1">
@@ -223,11 +220,11 @@ export function CookbookScreen() {
             )}
           </aside>
 
-          <main className="bg-bg-primary p-4 md:p-6">
-            <div className="panel">
+          <main className="flex-1 bg-bg-primary p-6">
+            <div className="flex flex-col border border-border-strong bg-bg-surface">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-strong px-4 py-4">
                 <div>
-                  <p className="text-lg font-semibold">Recipe Table</p>
+                  <p className="text-[18px] font-bold text-text-primary">Recipe Table</p>
                   <p className="tiny-copy mt-1">
                     {visibleRecipes.length} recipe
                     {visibleRecipes.length === 1 ? '' : 's'} visible
@@ -348,7 +345,7 @@ export function CookbookScreen() {
 
             {selectedSummary?.latestDigest ? (
               <div className="mt-4 panel p-4">
-                <p className="field-label mb-2">Latest Approved Digest</p>
+                <p className="text-[18px] font-bold text-text-primary">Latest Approved Digest</p>
                 <p className="font-medium">
                   {truncateText(selectedSummary.latestDigest.summary, 220)}
                 </p>
