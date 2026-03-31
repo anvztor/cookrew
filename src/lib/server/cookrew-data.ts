@@ -161,6 +161,11 @@ const DEFAULT_HEADERS = {
   'Content-Type': 'application/json',
 }
 
+export interface ProxySettings {
+  readonly apiKey: string | null
+  readonly baseUrl: string | null
+}
+
 export class KrewHubRequestError extends Error {
   readonly status: number
 
@@ -171,8 +176,33 @@ export class KrewHubRequestError extends Error {
   }
 }
 
-export function hasKrewHubProxy(): boolean {
-  return Boolean(process.env.KREWHUB_BASE_URL)
+export function getProxySettings(): ProxySettings {
+  return {
+    apiKey: process.env.KREWHUB_API_KEY ?? null,
+    baseUrl: process.env.KREWHUB_BASE_URL ?? null,
+  }
+}
+
+export function getProxySettingsFromRequest(request: Request): ProxySettings {
+  const cookieHeader = request.headers.get('cookie') ?? ''
+  const isDemoMode = cookieHeader
+    .split(';')
+    .some((cookie) => cookie.trim() === 'cookrew_mode=demo')
+
+  if (isDemoMode) {
+    return {
+      apiKey: null,
+      baseUrl: null,
+    }
+  }
+
+  return getProxySettings()
+}
+
+export function hasKrewHubProxy(
+  proxySettings: ProxySettings = getProxySettings()
+): boolean {
+  return Boolean(proxySettings.baseUrl)
 }
 
 async function readKrewHubError(response: Response): Promise<string> {
@@ -348,9 +378,10 @@ function normalizeDigest(digest: RawDigest): Digest {
 
 async function requestKrewHub<T>(
   path: string,
-  init?: RequestInit
+  init?: RequestInit,
+  proxySettings: ProxySettings = getProxySettings()
 ): Promise<T> {
-  const baseUrl = process.env.KREWHUB_BASE_URL
+  const baseUrl = proxySettings.baseUrl
   if (!baseUrl) {
     throw new Error('KREWHUB_BASE_URL is not configured')
   }
@@ -359,9 +390,7 @@ async function requestKrewHub<T>(
     ...init,
     headers: {
       ...DEFAULT_HEADERS,
-      ...(process.env.KREWHUB_API_KEY
-        ? { 'X-API-Key': process.env.KREWHUB_API_KEY }
-        : {}),
+      ...(proxySettings.apiKey ? { 'X-API-Key': proxySettings.apiKey } : {}),
       ...(init?.headers ?? {}),
     },
     cache: 'no-store',
@@ -418,8 +447,10 @@ function buildSummary(input: {
   }
 }
 
-export async function listCookbookData(): Promise<CookbookData> {
-  if (!hasKrewHubProxy()) {
+export async function listCookbookData(
+  proxySettings: ProxySettings = getProxySettings()
+): Promise<CookbookData> {
+  if (!hasKrewHubProxy(proxySettings)) {
     const recipes = listRecipes()
     const summaries = recipes.map((recipe) =>
       buildSummary({
@@ -437,10 +468,18 @@ export async function listCookbookData(): Promise<CookbookData> {
     }
   }
 
-  const rawRecipes = await requestKrewHub<RawRecipesResponse>('/recipes')
+  const rawRecipes = await requestKrewHub<RawRecipesResponse>(
+    '/recipes',
+    undefined,
+    proxySettings
+  )
   const summaries = await Promise.all(
     rawRecipes.recipes.map(async (recipe) => {
-      const detail = await requestKrewHub<RawRecipeDetailResponse>(`/recipes/${recipe.id}`)
+      const detail = await requestKrewHub<RawRecipeDetailResponse>(
+        `/recipes/${recipe.id}`,
+        undefined,
+        proxySettings
+      )
       return buildSummary({
         recipe: normalizeRecipe(detail.recipe),
         members: detail.members.map(normalizeMember),
@@ -457,28 +496,48 @@ export async function listCookbookData(): Promise<CookbookData> {
   }
 }
 
-export async function createRecipe(input: CreateRecipeInput): Promise<Recipe> {
-  if (!hasKrewHubProxy()) {
+export async function createRecipe(
+  input: CreateRecipeInput,
+  proxySettings: ProxySettings = getProxySettings()
+): Promise<Recipe> {
+  if (!hasKrewHubProxy(proxySettings)) {
     return createRecipeInDemo(input)
   }
 
-  const response = await requestKrewHub<{ recipe: RawRecipe }>('/recipes', {
-    method: 'POST',
-    body: JSON.stringify({
-      name: input.name,
-      repo_url: input.repoUrl,
-      default_branch: input.defaultBranch,
-      created_by: input.createdBy,
-    }),
-  })
+  const response = await requestKrewHub<{ recipe: RawRecipe }>(
+    '/recipes',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        name: input.name,
+        repo_url: input.repoUrl,
+        default_branch: input.defaultBranch,
+        created_by: input.createdBy,
+      }),
+    },
+    proxySettings
+  )
 
   return normalizeRecipe(response.recipe)
 }
 
-async function loadBundleDetailsFromKrewHub(bundleId: string): Promise<BundleWithDetails | null> {
+async function loadBundleDetailsFromKrewHub(
+  bundleId: string,
+  proxySettings: ProxySettings
+): Promise<BundleWithDetails | null> {
   const [bundleResponse, digestResponse] = await Promise.all([
-    requestKrewHub<RawBundleDetailResponse>(`/bundles/${bundleId}`),
-    nullOnNotFound(requestKrewHub<RawDigestResponse>(`/bundles/${bundleId}/digest`)),
+    requestKrewHub<RawBundleDetailResponse>(
+      `/bundles/${bundleId}`,
+      undefined,
+      proxySettings
+    ),
+    nullOnNotFound(
+      requestKrewHub<RawDigestResponse>(
+        `/bundles/${bundleId}/digest`,
+        undefined,
+        proxySettings
+      )
+    ),
   ])
 
   return {
@@ -491,9 +550,10 @@ async function loadBundleDetailsFromKrewHub(bundleId: string): Promise<BundleWit
 
 export async function getWorkspaceData(
   recipeId: string,
-  requestedBundleId?: string | null
+  requestedBundleId?: string | null,
+  proxySettings: ProxySettings = getProxySettings()
 ): Promise<WorkspaceData | null> {
-  if (!hasKrewHubProxy()) {
+  if (!hasKrewHubProxy(proxySettings)) {
     const recipe = getRecipe(recipeId)
     if (!recipe) {
       return null
@@ -514,7 +574,11 @@ export async function getWorkspaceData(
   }
 
   const detail = await nullOnNotFound(
-    requestKrewHub<RawRecipeDetailResponse>(`/recipes/${recipeId}`)
+    requestKrewHub<RawRecipeDetailResponse>(
+      `/recipes/${recipeId}`,
+      undefined,
+      proxySettings
+    )
   )
   if (!detail) {
     return null
@@ -531,20 +595,21 @@ export async function getWorkspaceData(
     recentDigests: detail.digests.map(normalizeDigest).slice(0, 4),
     selectedBundleId,
     selectedBundle: selectedBundleId
-      ? await loadBundleDetailsFromKrewHub(selectedBundleId)
+      ? await loadBundleDetailsFromKrewHub(selectedBundleId, proxySettings)
       : null,
   }
 }
 
 export async function createBundle(
   recipeId: string,
-  input: CreateBundleInput
+  input: CreateBundleInput,
+  proxySettings: ProxySettings = getProxySettings()
 ): Promise<{ bundleId: string }> {
   const taskTitles = normalizeTaskSeeds(input.taskTitles)
   const effectiveTaskTitles =
     taskTitles.length > 0 ? taskTitles : generateTaskSeeds(input.prompt)
 
-  if (!hasKrewHubProxy()) {
+  if (!hasKrewHubProxy(proxySettings)) {
     const result = createBundleInDemo({
       recipeId,
       prompt: input.prompt,
@@ -555,23 +620,28 @@ export async function createBundle(
     return { bundleId: result.bundle.id }
   }
 
-  const response = await requestKrewHub<{ bundle: RawBundle }>(`/recipes/${recipeId}/bundles`, {
-    method: 'POST',
-    body: JSON.stringify({
-      prompt: input.prompt,
-      requested_by: input.requestedBy,
-      tasks: effectiveTaskTitles.map((title) => ({ title })),
-    }),
-  })
+  const response = await requestKrewHub<{ bundle: RawBundle }>(
+    `/recipes/${recipeId}/bundles`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        prompt: input.prompt,
+        requested_by: input.requestedBy,
+        tasks: effectiveTaskTitles.map((title) => ({ title })),
+      }),
+    },
+    proxySettings
+  )
 
   return { bundleId: response.bundle.id }
 }
 
 export async function getDigestReviewData(
   recipeId: string,
-  bundleId: string
+  bundleId: string,
+  proxySettings: ProxySettings = getProxySettings()
 ): Promise<DigestReviewData | null> {
-  if (!hasKrewHubProxy()) {
+  if (!hasKrewHubProxy(proxySettings)) {
     const recipe = getRecipe(recipeId)
     const selectedBundle = getBundleWithDetails(bundleId)
     if (!recipe || !selectedBundle || !selectedBundle.digest) {
@@ -582,8 +652,14 @@ export async function getDigestReviewData(
   }
 
   const [recipeDetail, bundleDetail] = await Promise.all([
-    nullOnNotFound(requestKrewHub<RawRecipeDetailResponse>(`/recipes/${recipeId}`)),
-    nullOnNotFound(loadBundleDetailsFromKrewHub(bundleId)),
+    nullOnNotFound(
+      requestKrewHub<RawRecipeDetailResponse>(
+        `/recipes/${recipeId}`,
+        undefined,
+        proxySettings
+      )
+    ),
+    nullOnNotFound(loadBundleDetailsFromKrewHub(bundleId, proxySettings)),
   ])
 
   if (!recipeDetail || !bundleDetail || !bundleDetail.digest) {
@@ -598,9 +674,10 @@ export async function getDigestReviewData(
 
 export async function decideDigest(
   bundleId: string,
-  input: DecisionInput
+  input: DecisionInput,
+  proxySettings: ProxySettings = getProxySettings()
 ): Promise<Digest | null> {
-  if (!hasKrewHubProxy()) {
+  if (!hasKrewHubProxy(proxySettings)) {
     return decideDigestInDemo({
       bundleId,
       decision: input.decision,
@@ -609,20 +686,27 @@ export async function decideDigest(
     })
   }
 
-  const response = await requestKrewHub<RawDigestResponse>(`/bundles/${bundleId}/decision`, {
-    method: 'POST',
-    body: JSON.stringify({
-      decision: input.decision,
-      decided_by: input.decidedBy,
-      note: input.note,
-    }),
-  })
+  const response = await requestKrewHub<RawDigestResponse>(
+    `/bundles/${bundleId}/decision`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        decision: input.decision,
+        decided_by: input.decidedBy,
+        note: input.note,
+      }),
+    },
+    proxySettings
+  )
 
   return normalizeDigest(response.digest)
 }
 
-export async function getHistoryData(recipeId: string): Promise<HistoryData | null> {
-  if (!hasKrewHubProxy()) {
+export async function getHistoryData(
+  recipeId: string,
+  proxySettings: ProxySettings = getProxySettings()
+): Promise<HistoryData | null> {
+  if (!hasKrewHubProxy(proxySettings)) {
     const recipe = getRecipe(recipeId)
     if (!recipe) {
       return null
@@ -643,7 +727,11 @@ export async function getHistoryData(recipeId: string): Promise<HistoryData | nu
   }
 
   const detail = await nullOnNotFound(
-    requestKrewHub<RawRecipeDetailResponse>(`/recipes/${recipeId}`)
+    requestKrewHub<RawRecipeDetailResponse>(
+      `/recipes/${recipeId}`,
+      undefined,
+      proxySettings
+    )
   )
   if (!detail) {
     return null

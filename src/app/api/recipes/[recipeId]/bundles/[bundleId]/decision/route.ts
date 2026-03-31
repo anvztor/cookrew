@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import {
   decideDigest,
   getApiRouteError,
+  getProxySettingsFromRequest,
 } from '@/lib/server/cookrew-data'
 
 interface RouteContext {
@@ -11,6 +12,7 @@ interface RouteContext {
 export async function POST(request: Request, context: RouteContext) {
   try {
     const { recipeId, bundleId } = await context.params
+    const proxySettings = getProxySettingsFromRequest(request)
     const body = (await request.json()) as {
       decision?: 'approved' | 'rejected'
       decidedBy?: string
@@ -28,7 +30,7 @@ export async function POST(request: Request, context: RouteContext) {
       decision: body.decision,
       decidedBy: body.decidedBy.trim(),
       note: body.note,
-    })
+    }, proxySettings)
 
     if (!digest) {
       return NextResponse.json(

@@ -1,9 +1,24 @@
-import { existsSync } from 'node:fs'
+import { existsSync, mkdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { defineConfig } from '@playwright/test'
 
-const PORT = 3210
-const WEB_SERVER_COMMAND = getWebServerCommand()
+const APP_PORT = 3210
+const KREWHUB_PORT = 8421
+const KREWHUB_PROJECT_PATH = join(process.cwd(), '..', 'krewhub')
+const KREWHUB_BIN_PATH = join(KREWHUB_PROJECT_PATH, '.venv', 'bin', 'krewhub')
+const KREWHUB_BASE_URL = `http://127.0.0.1:${KREWHUB_PORT}`
+const KREWHUB_API_KEY = 'playwright-test-key'
+const KREWHUB_DB_PATH = join(
+  process.cwd(),
+  'test-results',
+  'krewhub-e2e.sqlite3'
+)
+
+mkdirSync(join(process.cwd(), 'test-results'), { recursive: true })
+rmSync(KREWHUB_DB_PATH, { force: true })
+
+process.env.PLAYWRIGHT_KREWHUB_BASE_URL = KREWHUB_BASE_URL
+process.env.PLAYWRIGHT_KREWHUB_API_KEY = KREWHUB_API_KEY
 
 function detectPackageManager() {
   const userAgent = process.env.npm_config_user_agent ?? ''
@@ -42,17 +57,33 @@ function detectPackageManager() {
   return 'npm'
 }
 
-function getWebServerCommand() {
+function getNextServerCommand(port: number) {
   switch (detectPackageManager()) {
     case 'bun':
-      return `bunx --bun next dev --webpack --hostname 127.0.0.1 --port ${PORT}`
+      return `bunx --bun next dev --webpack --hostname 127.0.0.1 --port ${port}`
     case 'pnpm':
-      return `pnpm exec next dev --webpack --hostname 127.0.0.1 --port ${PORT}`
+      return `pnpm exec next dev --webpack --hostname 127.0.0.1 --port ${port}`
     case 'yarn':
-      return `yarn exec next dev --webpack --hostname 127.0.0.1 --port ${PORT}`
+      return `yarn exec next dev --webpack --hostname 127.0.0.1 --port ${port}`
     default:
-      return `npx next dev --webpack --hostname 127.0.0.1 --port ${PORT}`
+      return `npx next dev --webpack --hostname 127.0.0.1 --port ${port}`
   }
+}
+
+function getNextServerEnv() {
+  return {
+    ...process.env,
+    KREWHUB_BASE_URL: KREWHUB_BASE_URL,
+    KREWHUB_API_KEY: KREWHUB_API_KEY,
+  }
+}
+
+function getKrewHubServerCommand() {
+  if (existsSync(KREWHUB_BIN_PATH)) {
+    return JSON.stringify(KREWHUB_BIN_PATH)
+  }
+
+  return `uv run --project ${JSON.stringify(KREWHUB_PROJECT_PATH)} krewhub`
 }
 
 export default defineConfig({
@@ -62,27 +93,57 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? 'github' : 'list',
   use: {
-    baseURL: `http://127.0.0.1:${PORT}`,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
   },
   projects: [
     {
-      name: 'chromium',
+      name: 'chromium-demo',
+      testIgnore: /krewhub\.spec\.ts$/,
       use: {
+        baseURL: `http://127.0.0.1:${APP_PORT}`,
+        browserName: 'chromium',
+        viewport: { width: 1440, height: 960 },
+      },
+    },
+    {
+      name: 'chromium-krewhub',
+      testMatch: /krewhub\.spec\.ts$/,
+      use: {
+        baseURL: `http://127.0.0.1:${APP_PORT}`,
         browserName: 'chromium',
         viewport: { width: 1440, height: 960 },
       },
     },
   ],
-  webServer: {
-    // Keep Playwright aligned with whichever package manager launched the tests.
-    command: WEB_SERVER_COMMAND,
-    url: `http://127.0.0.1:${PORT}`,
-    reuseExistingServer: !process.env.CI,
-    stdout: 'ignore',
-    stderr: 'pipe',
-    timeout: 120 * 1000,
-  },
+  webServer: [
+    {
+      // Real KrewHub instance used by the proxy-backed browser test.
+      command: getKrewHubServerCommand(),
+      cwd: KREWHUB_PROJECT_PATH,
+      env: {
+        ...process.env,
+        KREWHUB_HOST: '127.0.0.1',
+        KREWHUB_PORT: String(KREWHUB_PORT),
+        KREWHUB_DATABASE_PATH: KREWHUB_DB_PATH,
+        KREWHUB_API_KEY: KREWHUB_API_KEY,
+      },
+      url: `${KREWHUB_BASE_URL}/openapi.json`,
+      reuseExistingServer: false,
+      stdout: 'ignore',
+      stderr: 'pipe',
+      timeout: 120 * 1000,
+    },
+    {
+      // Single Next server; demo-mode tests opt into local data via a cookie override.
+      command: getNextServerCommand(APP_PORT),
+      env: getNextServerEnv(),
+      url: `http://127.0.0.1:${APP_PORT}`,
+      reuseExistingServer: false,
+      stdout: 'ignore',
+      stderr: 'pipe',
+      timeout: 120 * 1000,
+    },
+  ],
 })
