@@ -34,6 +34,7 @@ export async function POST(request: Request, context: RouteContext) {
 
     return NextResponse.json(result, { status: 201 })
   } catch (error) {
+    console.error('Bundle creation error:', error)
     const apiError = getApiRouteError(error, 'Unable to create bundle')
     return NextResponse.json(
       { error: apiError.error },

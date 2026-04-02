@@ -782,11 +782,14 @@ export async function createBundle(
   } else if (hasKrewHubProxy(proxySettings)) {
     // A2A: find orchestrator agent → pydantic-graph workflow → tasks with deps
     const planned = await planViaAgent(recipeId, input.prompt, proxySettings)
+    // Generate unique task IDs (global uniqueness required by krewhub)
+    const prefix = `t_${crypto.randomUUID().slice(0, 8)}`
+    const idMap = new Map(planned.map((_, i) => [`task_${i}`, `${prefix}_${i}`]))
     tasksPayload = planned.map((task, i) => ({
-      id: `task_${i}`,
+      id: `${prefix}_${i}`,
       title: task.title,
       description: task.description,
-      depends_on_task_ids: task.dependsOn,
+      depends_on_task_ids: task.dependsOn.map((dep) => idMap.get(dep) ?? dep),
     }))
   } else {
     // Demo mode fallback: local heuristic planner
