@@ -166,7 +166,7 @@ const DEFAULT_HEADERS = {
   'Content-Type': 'application/json',
 }
 
-interface ProxySettings {
+export interface ProxySettings {
   readonly apiKey: string | null
   readonly baseUrl: string | null
 }
