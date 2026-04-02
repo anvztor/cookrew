@@ -829,9 +829,14 @@ export async function createBundle(
 }
 
 /**
- * Call krewhub POST /api/v1/plan which proxies to an online agent
- * for real LLM-based task decomposition. Falls back to local planner
- * if no agent is available (503) or on any error.
+ * Discover an online agent with planning capability via krewhub,
+ * then send it an A2A message to decompose the prompt into tasks.
+ *
+ * This is the k8s scheduler pattern: the planner is an agent that
+ * advertises its capability via AgentCard. We discover it through
+ * krewhub (the API server), then talk to it directly via A2A.
+ *
+ * Falls back to local heuristic planner if no planner agent is online.
  */
 async function planViaAgent(
   recipeId: string,
@@ -839,29 +844,91 @@ async function planViaAgent(
   proxySettings: ProxySettings
 ): Promise<Array<{ title: string; description: string; dependsOn: number[] }>> {
   try {
-    const data = await requestKrewHub<{
-      tasks: Array<{ title: string; description?: string; dependsOn?: number[] }>
-    }>(
-      '/plan',
-      {
-        method: 'POST',
-        body: JSON.stringify({ prompt, recipe_id: recipeId }),
-      },
-      proxySettings
+    // Step 1: Discover agents from krewhub
+    const recipeData = await requestKrewHub<{
+      agents: Array<{
+        agent_id: string
+        status: string
+        capabilities: string[]
+        endpoint_url: string | null
+      }>
+    }>(`/recipes/${recipeId}`, { method: 'GET' }, proxySettings)
+
+    // Step 2: Find an agent tagged with planning capability
+    const planCaps = new Set(['plan', 'orchestrate', 'predict', 'summarize', 'classify', 'review'])
+    const planner = recipeData.agents?.find(
+      (a) =>
+        a.status !== 'offline' &&
+        a.endpoint_url &&
+        a.capabilities.some((c) => planCaps.has(c))
     )
 
-    if (data.tasks && data.tasks.length > 0) {
-      return data.tasks.map((t) => ({
-        title: t.title,
-        description: t.description ?? '',
-        dependsOn: t.dependsOn ?? [],
-      }))
+    if (!planner?.endpoint_url) {
+      return planTasksFromPrompt(prompt)
+    }
+
+    // Step 3: Send A2A message/send to the agent's endpoint
+    const messageId = crypto.randomUUID()
+    const a2aRequest = {
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'message/send',
+      params: {
+        message: {
+          role: 'user',
+          messageId,
+          parts: [
+            {
+              kind: 'text',
+              text: `Decompose this request into 3-6 concrete coding tasks with dependencies. Return a JSON object with a "tasks" array where each task has "title", "description", and "dependsOn" (array of 0-based indices). Task 0 should have no dependencies.\n\nRequest: ${prompt}`,
+            },
+          ],
+        },
+      },
+    }
+
+    const a2aResp = await fetch(planner.endpoint_url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(a2aRequest),
+      cache: 'no-store',
+    })
+
+    if (!a2aResp.ok) {
+      return planTasksFromPrompt(prompt)
+    }
+
+    const a2aResult = (await a2aResp.json()) as {
+      result?: {
+        artifacts?: Array<{
+          parts?: Array<{ kind: string; text?: string }>
+        }>
+      }
+    }
+
+    // Step 4: Extract tasks from the A2A response artifact
+    const artifactText = a2aResult.result?.artifacts?.[0]?.parts?.find(
+      (p) => p.kind === 'text'
+    )?.text
+
+    if (artifactText) {
+      const parsed = JSON.parse(artifactText) as {
+        tasks?: Array<{ title: string; description?: string; dependsOn?: number[]; depends_on?: number[] }>
+      }
+
+      if (parsed.tasks && parsed.tasks.length > 0) {
+        return parsed.tasks.map((t) => ({
+          title: t.title,
+          description: t.description ?? '',
+          dependsOn: t.dependsOn ?? t.depends_on ?? [],
+        }))
+      }
     }
   } catch {
-    // Agent unavailable or planning failed — fall through
+    // Discovery or A2A call failed — fall through
   }
 
-  // Fallback to local heuristic planner
+  // Fallback: local heuristic planner
   return planTasksFromPrompt(prompt)
 }
 
