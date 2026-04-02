@@ -70,6 +70,28 @@ export function WorkspaceScreen({ recipeId }: WorkspaceScreenProps) {
 
   const selectedBundle = data?.selectedBundle ?? null
   const selectedBundleId = data?.selectedBundleId ?? null
+  const allBundles = data?.bundles ?? []
+
+  const handleSelectBundle = useCallback(
+    (bundleId: string) => {
+      router.push(`/recipes/${recipeId}?bundle=${bundleId}`)
+    },
+    [recipeId, router]
+  )
+
+  const handleCancelBundle = useCallback(
+    async (bundleId: string) => {
+      // Cancel via krewhub PATCH (through BFF proxy would be ideal,
+      // but for now we just reload after navigation)
+      try {
+        await fetch(`/api/recipes/${recipeId}/bundles/${bundleId}/cancel`, { method: 'POST' })
+      } catch {
+        // Ignore — the bundle list will refresh via watch
+      }
+      void load(selectedBundleId, false)
+    },
+    [recipeId, selectedBundleId, load]
+  )
 
   useWatch(recipeId, () => {
     void load(selectedBundleId ?? bundleIdFromUrl, false)
@@ -249,9 +271,13 @@ export function WorkspaceScreen({ recipeId }: WorkspaceScreenProps) {
         <PanelGroup id="workspace-panels" orientation="horizontal" className="h-full">
           <Panel id="workspace-left" defaultSize="18%" minSize="16%" maxSize="30%">
             <WorkspaceLeftPane
+              bundles={allBundles}
               capabilityRows={capabilityRows}
               data={data}
+              onSelectBundle={handleSelectBundle}
+              onCancelBundle={handleCancelBundle}
               participantCount={participantCount}
+              selectedBundleId={selectedBundleId}
               testId="workspace-left-pane"
             />
           </Panel>
@@ -308,10 +334,14 @@ export function WorkspaceScreen({ recipeId }: WorkspaceScreenProps) {
 
       <div className="flex flex-1 flex-col overflow-y-auto lg:hidden">
         <WorkspaceLeftPane
+          bundles={allBundles}
           capabilityRows={capabilityRows}
           data={data}
           mobile
+          onSelectBundle={handleSelectBundle}
+          onCancelBundle={handleCancelBundle}
           participantCount={participantCount}
+          selectedBundleId={selectedBundleId}
         />
         <WorkspaceCenterPane
           events={visibleEvents}

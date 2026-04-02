@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react'
 import type {
   AgentPresence,
+  Bundle,
   BundleWithDetails,
   Event,
   Task,
@@ -54,10 +55,14 @@ export interface WorkspaceHeaderProps {
 }
 
 export interface WorkspaceLeftPaneProps {
+  readonly bundles: readonly Bundle[]
   readonly capabilityRows: readonly CapabilityRow[]
   readonly data: WorkspaceData
   readonly mobile?: boolean
+  readonly onSelectBundle: (bundleId: string) => void
+  readonly onCancelBundle: (bundleId: string) => void
   readonly participantCount: number
+  readonly selectedBundleId: string | null
   readonly testId?: string
 }
 

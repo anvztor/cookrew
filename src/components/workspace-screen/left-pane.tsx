@@ -1,14 +1,29 @@
-import { Bot } from 'lucide-react'
+import { Bot, Package, X } from 'lucide-react'
 import { formatRelativeTime } from '@/lib/format'
 import { agentTone, humanAvatarTone, initials, readAgentActivity } from './helpers'
 import { joinClasses, WorkspaceBadge } from './shared'
 import type { WorkspaceLeftPaneProps } from './types'
+import type { WorkspaceTone } from './types'
+
+const BUNDLE_TONE: Record<string, { label: string; tone: WorkspaceTone }> = {
+  open: { label: 'open', tone: 'slate' },
+  claimed: { label: 'active', tone: 'violet' },
+  cooked: { label: 'cooked', tone: 'emerald' },
+  blocked: { label: 'blocked', tone: 'amber' },
+  cancelled: { label: 'cancelled', tone: 'rose' },
+  digested: { label: 'done', tone: 'emerald' },
+  rejected: { label: 'rejected', tone: 'rose' },
+}
 
 export function WorkspaceLeftPane({
+  bundles,
   capabilityRows,
   data,
   mobile = false,
+  onSelectBundle,
+  onCancelBundle,
   participantCount,
+  selectedBundleId,
   testId,
 }: WorkspaceLeftPaneProps) {
   return (
@@ -105,6 +120,64 @@ export function WorkspaceLeftPane({
               </div>
             )
           })}
+        </div>
+      </section>
+
+      <section className="border-b border-[#2D2A20] px-4 py-3">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#57534E]">
+            Bundles
+          </p>
+          <span className="text-[11px] font-semibold text-[#57534E]">
+            {bundles.filter((b) => !['cancelled', 'digested', 'rejected'].includes(b.status)).length} active
+          </span>
+        </div>
+        <div className="mt-2 flex max-h-48 flex-col gap-1.5 overflow-y-auto">
+          {bundles.map((bundle) => {
+            const tone = BUNDLE_TONE[bundle.status] ?? { label: bundle.status, tone: 'default' as const }
+            const isSelected = bundle.id === selectedBundleId
+            const isTerminal = ['cancelled', 'digested', 'rejected'].includes(bundle.status)
+
+            return (
+              <div
+                key={bundle.id}
+                className={joinClasses(
+                  'flex items-center gap-2 rounded px-2 py-1.5 cursor-pointer transition-colors',
+                  isSelected
+                    ? 'bg-[#FEF3C7] border border-[#F59E0B]'
+                    : 'hover:bg-[#F5F0E8] border border-transparent'
+                )}
+                onClick={() => onSelectBundle(bundle.id)}
+              >
+                <Package size={14} className={isTerminal ? 'text-[#A8A29E]' : 'text-[#57534E]'} />
+                <div className="min-w-0 flex-1">
+                  <p className={joinClasses(
+                    'truncate text-[12px] font-medium',
+                    isTerminal ? 'text-[#A8A29E]' : 'text-[#2D2A20]'
+                  )}>
+                    {bundle.prompt.slice(0, 40)}
+                  </p>
+                </div>
+                <WorkspaceBadge label={tone.label} tone={tone.tone} />
+                {!isTerminal && bundle.status !== 'digested' ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onCancelBundle(bundle.id)
+                    }}
+                    className="text-[#A8A29E] hover:text-[#EF4444] transition-colors"
+                    title="Cancel bundle"
+                  >
+                    <X size={12} />
+                  </button>
+                ) : null}
+              </div>
+            )
+          })}
+          {bundles.length === 0 ? (
+            <p className="text-[12px] text-[#57534E]">No bundles yet.</p>
+          ) : null}
         </div>
       </section>
 
