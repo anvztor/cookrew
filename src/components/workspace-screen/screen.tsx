@@ -4,7 +4,7 @@ import { useCallback, useDeferredValue, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Group as PanelGroup, Panel } from 'react-resizable-panels'
 import { createBundle, getWorkspaceData, rerunBundle } from '@/lib/api'
-import { useRecipeStream } from '@/hooks/use-sse'
+import { useWatch } from '@/hooks/use-watch'
 import type { WorkspaceData } from '@/types'
 import {
   buildDependencyRows,
@@ -71,7 +71,7 @@ export function WorkspaceScreen({ recipeId }: WorkspaceScreenProps) {
   const selectedBundle = data?.selectedBundle ?? null
   const selectedBundleId = data?.selectedBundleId ?? null
 
-  useRecipeStream(recipeId, () => {
+  useWatch(recipeId, () => {
     void load(selectedBundleId ?? bundleIdFromUrl, false)
   })
 
