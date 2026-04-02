@@ -445,16 +445,16 @@ export function listBundles(recipeId: string): Bundle[] {
   )
 }
 
-export function getBundle(bundleId: string): Bundle | null {
+function getBundle(bundleId: string): Bundle | null {
   const bundle = readState().bundles.find((entry) => entry.id === bundleId)
   return bundle ? clone(bundle) : null
 }
 
-export function listTasks(bundleId: string): Task[] {
+function listTasks(bundleId: string): Task[] {
   return clone(readState().tasks.filter((entry) => entry.bundleId === bundleId))
 }
 
-export function listEvents(bundleId: string): Event[] {
+function listEvents(bundleId: string): Event[] {
   const state = readState()
   return clone(
     state.events
@@ -463,7 +463,7 @@ export function listEvents(bundleId: string): Event[] {
   )
 }
 
-export function getDigestByBundle(bundleId: string): Digest | null {
+function getDigestByBundle(bundleId: string): Digest | null {
   const digest = readState().digests.find((entry) => entry.bundleId === bundleId)
   return digest ? clone(digest) : null
 }

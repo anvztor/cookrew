@@ -117,17 +117,6 @@ export function decisionTone(decision: DigestDecision): string {
   }
 }
 
-export function agentTone(status: AgentStatus): string {
-  switch (status) {
-    case 'online':
-      return 'emerald'
-    case 'busy':
-      return 'amber'
-    case 'offline':
-      return 'slate'
-  }
-}
-
 export function eventTone(type: EventType): string {
   switch (type) {
     case 'prompt':

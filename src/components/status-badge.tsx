@@ -1,5 +1,4 @@
 import {
-  agentTone,
   bundleTone,
   decisionTone,
   eventTone,
@@ -7,7 +6,6 @@ import {
   taskTone,
 } from '@/lib/format'
 import type {
-  AgentStatus,
   BundleStatus,
   DigestDecision,
   EventType,
@@ -48,14 +46,6 @@ export function DecisionBadge({
   readonly decision: DigestDecision
 }) {
   return <ToneBadge label={decision} tone={decisionTone(decision) as Tone} />
-}
-
-export function AgentStatusBadge({
-  status,
-}: {
-  readonly status: AgentStatus
-}) {
-  return <ToneBadge label={status} tone={agentTone(status) as Tone} />
 }
 
 export function EventTypeBadge({

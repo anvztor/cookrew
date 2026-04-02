@@ -4,7 +4,6 @@ import type {
   BundleWithDetails,
   Event,
   Task,
-  TaskStatus,
   WorkspaceData,
 } from '@/types'
 import type { AgentTonePresentation, HumanAvatarTone } from './internal-types'
@@ -101,13 +100,6 @@ export interface WorkspaceRightPaneProps {
 export interface ResizeHandleProps {
   readonly ariaLabel: string
   readonly testId: string
-}
-
-export interface TaskFilterInput {
-  readonly title: string
-  readonly status: TaskStatus
-  readonly blockedReason: string | null
-  readonly dependsOnTaskIds: readonly string[]
 }
 
 export type { AgentTonePresentation, HumanAvatarTone }

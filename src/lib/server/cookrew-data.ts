@@ -165,12 +165,12 @@ const DEFAULT_HEADERS = {
   'Content-Type': 'application/json',
 }
 
-export interface ProxySettings {
+interface ProxySettings {
   readonly apiKey: string | null
   readonly baseUrl: string | null
 }
 
-export class KrewHubRequestError extends Error {
+class KrewHubRequestError extends Error {
   readonly status: number
 
   constructor(message: string, status: number) {
@@ -180,7 +180,7 @@ export class KrewHubRequestError extends Error {
   }
 }
 
-export function getProxySettings(): ProxySettings {
+function getProxySettings(): ProxySettings {
   return {
     apiKey: process.env.KREWHUB_API_KEY ?? null,
     baseUrl: process.env.KREWHUB_BASE_URL ?? null,

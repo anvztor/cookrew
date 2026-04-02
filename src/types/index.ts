@@ -218,6 +218,4 @@ export interface StreamEventPayload {
   readonly data: Record<string, unknown> | null
 }
 
-export interface ApiErrorShape {
-  readonly error: string
-}
+
