@@ -13,7 +13,8 @@ import {
   submitDigestInDemo,
 } from '@/lib/server/demo-store'
 import { calculateMedian } from '@/lib/format'
-import { generateTaskSeeds, normalizeTaskSeeds } from '@/lib/task-seeds'
+import { normalizeTaskSeeds } from '@/lib/task-seeds'
+import { planTasksFromPrompt } from '@/lib/server/task-planner'
 import type {
   AgentPresence,
   Bundle,
@@ -765,16 +766,38 @@ export async function createBundle(
   input: CreateBundleInput,
   proxySettings: ProxySettings = getProxySettings()
 ): Promise<{ bundleId: string }> {
-  const taskTitles = normalizeTaskSeeds(input.taskTitles)
-  const effectiveTaskTitles =
-    taskTitles.length > 0 ? taskTitles : generateTaskSeeds(input.prompt)
+  const userSeeds = normalizeTaskSeeds(input.taskTitles)
+
+  // If user provided task seeds, use them as simple tasks (no deps)
+  // Otherwise, use the orchestrator planner to decompose the prompt
+  // into tasks WITH dependency edges
+  let tasksPayload: Array<{
+    title: string
+    description?: string
+    depends_on_task_ids?: string[]
+  }>
+
+  if (userSeeds.length > 0) {
+    tasksPayload = userSeeds.map((title) => ({ title }))
+  } else {
+    const planned = planTasksFromPrompt(input.prompt)
+
+    // Generate stable task IDs so we can reference dependencies by ID
+    const taskIds = planned.map((_, i) => `planned_${i}`)
+    tasksPayload = planned.map((task, i) => ({
+      title: task.title,
+      description: task.description,
+      depends_on_task_ids: task.dependsOn.map((depIdx) => taskIds[depIdx]),
+      id: taskIds[i],
+    }))
+  }
 
   if (!hasKrewHubProxy(proxySettings)) {
     const result = createBundleInDemo({
       recipeId,
       prompt: input.prompt,
       requestedBy: input.requestedBy,
-      taskTitles: effectiveTaskTitles,
+      taskTitles: tasksPayload.map((t) => t.title),
     })
 
     return { bundleId: result.bundle.id }
@@ -787,7 +810,7 @@ export async function createBundle(
       body: JSON.stringify({
         prompt: input.prompt,
         requested_by: input.requestedBy,
-        tasks: effectiveTaskTitles.map((title) => ({ title })),
+        tasks: tasksPayload,
       }),
     },
     proxySettings

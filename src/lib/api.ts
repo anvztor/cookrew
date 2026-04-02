@@ -63,6 +63,25 @@ export async function getWorkspaceData(
   return requestJson<WorkspaceData>(`/api/recipes/${recipeId}${search}`)
 }
 
+export interface PlannedTask {
+  readonly title: string
+  readonly description: string
+  readonly dependsOn: readonly number[]
+}
+
+export async function planTasks(
+  recipeId: string,
+  prompt: string
+): Promise<{ tasks: PlannedTask[] }> {
+  return requestJson<{ tasks: PlannedTask[] }>(
+    `/api/recipes/${recipeId}/plan`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ prompt }),
+    }
+  )
+}
+
 export async function createBundle(
   recipeId: string,
   input: CreateBundleInput
