@@ -779,10 +779,19 @@ export async function createBundle(
 
   if (userSeeds.length > 0) {
     tasksPayload = userSeeds.map((title) => ({ title }))
+  } else if (hasKrewHubProxy(proxySettings)) {
+    // Try real LLM planning via krewhub → agent
+    const planned = await planViaAgent(recipeId, input.prompt, proxySettings)
+    const taskIds = planned.map((_, i) => `planned_${i}`)
+    tasksPayload = planned.map((task, i) => ({
+      title: task.title,
+      description: task.description,
+      depends_on_task_ids: task.dependsOn.map((depIdx: number) => taskIds[depIdx]),
+      id: taskIds[i],
+    }))
   } else {
+    // Demo mode fallback: local heuristic planner
     const planned = planTasksFromPrompt(input.prompt)
-
-    // Generate stable task IDs so we can reference dependencies by ID
     const taskIds = planned.map((_, i) => `planned_${i}`)
     tasksPayload = planned.map((task, i) => ({
       title: task.title,
@@ -817,6 +826,43 @@ export async function createBundle(
   )
 
   return { bundleId: response.bundle.id }
+}
+
+/**
+ * Call krewhub POST /api/v1/plan which proxies to an online agent
+ * for real LLM-based task decomposition. Falls back to local planner
+ * if no agent is available (503) or on any error.
+ */
+async function planViaAgent(
+  recipeId: string,
+  prompt: string,
+  proxySettings: ProxySettings
+): Promise<Array<{ title: string; description: string; dependsOn: number[] }>> {
+  try {
+    const data = await requestKrewHub<{
+      tasks: Array<{ title: string; description?: string; dependsOn?: number[] }>
+    }>(
+      '/plan',
+      {
+        method: 'POST',
+        body: JSON.stringify({ prompt, recipe_id: recipeId }),
+      },
+      proxySettings
+    )
+
+    if (data.tasks && data.tasks.length > 0) {
+      return data.tasks.map((t) => ({
+        title: t.title,
+        description: t.description ?? '',
+        dependsOn: t.dependsOn ?? [],
+      }))
+    }
+  } catch {
+    // Agent unavailable or planning failed — fall through
+  }
+
+  // Fallback to local heuristic planner
+  return planTasksFromPrompt(prompt)
 }
 
 export async function getDigestReviewData(
