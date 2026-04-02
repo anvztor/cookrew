@@ -100,7 +100,7 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium-demo',
-      testIgnore: /krewhub\.spec\.ts$|multi-agent\.spec\.ts$/,
+      testIgnore: /krewhub\.spec\.ts$|multi-agent\.spec\.ts$|llm-planning\.spec\.ts$/,
       use: {
         baseURL: `http://127.0.0.1:${APP_PORT}`,
         browserName: 'chromium',
@@ -120,7 +120,15 @@ export default defineConfig({
       name: 'chromium-multiagent',
       testMatch: /multi-agent\.spec\.ts$/,
       use: {
-        // Runs against the live docker compose stack (port 3000)
+        baseURL: 'http://127.0.0.1:3000',
+        browserName: 'chromium',
+        viewport: { width: 1440, height: 960 },
+      },
+    },
+    {
+      name: 'chromium-llm-planning',
+      testMatch: /llm-planning\.spec\.ts$/,
+      use: {
         baseURL: 'http://127.0.0.1:3000',
         browserName: 'chromium',
         viewport: { width: 1440, height: 960 },

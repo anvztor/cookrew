@@ -780,14 +780,13 @@ export async function createBundle(
   if (userSeeds.length > 0) {
     tasksPayload = userSeeds.map((title) => ({ title }))
   } else if (hasKrewHubProxy(proxySettings)) {
-    // Try real LLM planning via krewhub → agent
+    // A2A: find orchestrator agent → pydantic-graph workflow → tasks with deps
     const planned = await planViaAgent(recipeId, input.prompt, proxySettings)
-    const taskIds = planned.map((_, i) => `planned_${i}`)
     tasksPayload = planned.map((task, i) => ({
+      id: `task_${i}`,
       title: task.title,
       description: task.description,
-      depends_on_task_ids: task.dependsOn.map((depIdx: number) => taskIds[depIdx]),
-      id: taskIds[i],
+      depends_on_task_ids: task.dependsOn,
     }))
   } else {
     // Demo mode fallback: local heuristic planner
@@ -842,7 +841,7 @@ async function planViaAgent(
   recipeId: string,
   prompt: string,
   proxySettings: ProxySettings
-): Promise<Array<{ title: string; description: string; dependsOn: number[] }>> {
+): Promise<Array<{ title: string; description: string; dependsOn: string[] }>> {
   try {
     // Step 1: Discover agents from krewhub
     const recipeData = await requestKrewHub<{
@@ -854,8 +853,8 @@ async function planViaAgent(
       }>
     }>(`/recipes/${recipeId}`, { method: 'GET' }, proxySettings)
 
-    // Step 2: Find an agent tagged with planning capability
-    const planCaps = new Set(['plan', 'orchestrate', 'predict', 'summarize', 'classify', 'review'])
+    // Step 2: Find an agent tagged with orchestrate/plan capability
+    const planCaps = new Set(['plan', 'orchestrate'])
     const planner = recipeData.agents?.find(
       (a) =>
         a.status !== 'offline' &&
@@ -864,40 +863,35 @@ async function planViaAgent(
     )
 
     if (!planner?.endpoint_url) {
-      return planTasksFromPrompt(prompt)
+      return _localFallback(prompt)
     }
 
-    // Step 3: Send A2A message/send to the agent's endpoint
-    const messageId = crypto.randomUUID()
-    const a2aRequest = {
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'message/send',
-      params: {
-        message: {
-          role: 'user',
-          messageId,
-          parts: [
-            {
-              kind: 'text',
-              text: `Decompose this request into 3-6 concrete coding tasks with dependencies. Return a JSON object with a "tasks" array where each task has "title", "description", and "dependsOn" (array of 0-based indices). Task 0 should have no dependencies.\n\nRequest: ${prompt}`,
-            },
-          ],
-        },
-      },
-    }
-
+    // Step 3: Send A2A message/send — the orchestrator runs
+    // pydantic-graph to select a workflow template and extract tasks
     const a2aResp = await fetch(planner.endpoint_url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(a2aRequest),
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'message/send',
+        params: {
+          message: {
+            role: 'user',
+            messageId: crypto.randomUUID(),
+            parts: [{ kind: 'text', text: prompt }],
+          },
+        },
+      }),
       cache: 'no-store',
     })
 
     if (!a2aResp.ok) {
-      return planTasksFromPrompt(prompt)
+      return _localFallback(prompt)
     }
 
+    // Step 4: Parse the orchestrator's response
+    // The artifact contains: { workflow, tasks: [{id, title, description, dependsOn}], mermaid }
     const a2aResult = (await a2aResp.json()) as {
       result?: {
         artifacts?: Array<{
@@ -906,21 +900,26 @@ async function planViaAgent(
       }
     }
 
-    // Step 4: Extract tasks from the A2A response artifact
     const artifactText = a2aResult.result?.artifacts?.[0]?.parts?.find(
       (p) => p.kind === 'text'
     )?.text
 
     if (artifactText) {
       const parsed = JSON.parse(artifactText) as {
-        tasks?: Array<{ title: string; description?: string; dependsOn?: number[]; depends_on?: number[] }>
+        tasks?: Array<{
+          id: string
+          title: string
+          description?: string
+          dependsOn?: string[]
+        }>
+        mermaid?: string
       }
 
       if (parsed.tasks && parsed.tasks.length > 0) {
         return parsed.tasks.map((t) => ({
           title: t.title,
           description: t.description ?? '',
-          dependsOn: t.dependsOn ?? t.depends_on ?? [],
+          dependsOn: t.dependsOn ?? [],
         }))
       }
     }
@@ -928,8 +927,16 @@ async function planViaAgent(
     // Discovery or A2A call failed — fall through
   }
 
-  // Fallback: local heuristic planner
-  return planTasksFromPrompt(prompt)
+  return _localFallback(prompt)
+}
+
+function _localFallback(
+  prompt: string
+): Array<{ title: string; description: string; dependsOn: string[] }> {
+  return planTasksFromPrompt(prompt).map((t) => ({
+    ...t,
+    dependsOn: t.dependsOn.map((i) => `task_${i}`),
+  }))
 }
 
 export async function getDigestReviewData(
