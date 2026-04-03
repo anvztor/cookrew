@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import {
   ArrowUpRight,
   Bot,
+  BookOpen,
   Filter,
   FolderGit2,
   History,
@@ -21,7 +22,7 @@ import {
   formatTimestamp,
   truncateText,
 } from '@/lib/format'
-import type { BundleStatus, CookbookData, RecipeSummary } from '@/types'
+import type { AgentPresence, BundleStatus, CookbookData, CookbookGroup, RecipeSummary } from '@/types'
 
 type StatusFilter = 'all' | BundleStatus
 
@@ -75,7 +76,9 @@ export function CookbookScreen() {
     }
   }, [])
 
-  const visibleRecipes = (data?.recipes ?? []).filter((summary) => {
+  const allRecipes = (data?.cookbooks ?? []).flatMap((g) => g.recipes)
+
+  const filterRecipe = (summary: RecipeSummary) => {
     const matchesSearch =
       deferredSearch.trim().length === 0 ||
       summary.recipe.name
@@ -89,14 +92,16 @@ export function CookbookScreen() {
       statusFilter === 'all' || summary.activeBundle?.status === statusFilter
 
     return matchesSearch && matchesStatus
-  })
+  }
 
   const selectedSummary =
-    visibleRecipes.find((summary) => summary.recipe.id === selectedRecipeId) ??
-    data?.recipes.find((summary) => summary.recipe.id === selectedRecipeId) ??
-    visibleRecipes[0] ??
-    data?.recipes[0] ??
+    allRecipes.find((summary) => summary.recipe.id === selectedRecipeId) ??
+    allRecipes[0] ??
     null
+
+  const selectedCookbook = (data?.cookbooks ?? []).find((g) =>
+    g.recipes.some((r) => r.recipe.id === selectedRecipeId)
+  )
 
   function handleCreated(recipe: RecipeSummary['recipe']) {
     setIsCreateOpen(false)
@@ -155,6 +160,12 @@ export function CookbookScreen() {
                       <p className="tiny-copy mt-1 break-all">
                         {selectedSummary.recipe.repoUrl}
                       </p>
+                      {selectedCookbook ? (
+                        <p className="tiny-copy mt-1 flex items-center gap-1">
+                          <BookOpen size={12} />
+                          {selectedCookbook.cookbook.name}
+                        </p>
+                      ) : null}
                     </div>
                   </div>
 
@@ -197,18 +208,18 @@ export function CookbookScreen() {
                     Online Agents
                   </p>
                   <div className="space-y-3">
-                    <div className="flex flex-col gap-[6px] border border-border-strong bg-bg-surface p-3">
-                      <p className="text-[28px] font-bold text-text-primary">
-                        {selectedSummary.onlineAgentCount}
-                      </p>
-                      <p className="tiny-copy mt-1">
-                        active right now out of {selectedSummary.agentCount}
-                      </p>
-                    </div>
-                    <p className="tiny-copy">
-                      Workspace presence updates stream in over SSE once you
-                      open a recipe.
-                    </p>
+                    {selectedCookbook ? (
+                      <AgentList agents={selectedCookbook.agents} />
+                    ) : (
+                      <div className="flex flex-col gap-[6px] border border-border-strong bg-bg-surface p-3">
+                        <p className="text-[28px] font-bold text-text-primary">
+                          {selectedSummary.onlineAgentCount}
+                        </p>
+                        <p className="tiny-copy mt-1">
+                          active right now out of {selectedSummary.agentCount}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </>
@@ -220,128 +231,38 @@ export function CookbookScreen() {
             )}
           </aside>
 
-          <main className="flex-1 bg-bg-primary p-6">
-            <div className="flex flex-col border border-border-strong bg-bg-surface">
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-strong px-4 py-4">
-                <div>
-                  <p className="text-[18px] font-bold text-text-primary">Recipe Table</p>
-                  <p className="tiny-copy mt-1">
-                    {visibleRecipes.length} recipe
-                    {visibleRecipes.length === 1 ? '' : 's'} visible
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-3">
-                  <label className="inline-flex items-center gap-2">
-                    <Filter size={14} className="text-text-secondary" />
-                    <select
-                      value={statusFilter}
-                      onChange={(event) =>
-                        setStatusFilter(event.target.value as StatusFilter)
-                      }
-                      className="select-input w-[160px]"
-                    >
-                      <option value="all">All statuses</option>
-                      <option value="open">Open</option>
-                      <option value="claimed">Claimed</option>
-                      <option value="cooked">Cooked</option>
-                      <option value="blocked">Blocked</option>
-                      <option value="digested">Digested</option>
-                    </select>
-                  </label>
-                </div>
+          <main className="flex-1 bg-bg-primary p-6 overflow-y-auto">
+            {isLoading ? (
+              <div className="p-6 text-sm text-text-secondary">
+                Loading cookbook…
               </div>
-
-              <div className="hidden border-b border-border-subtle bg-stone-100 px-4 py-3 text-xs font-bold uppercase tracking-[0.08em] text-text-secondary md:grid md:grid-cols-[minmax(0,2.4fr)_110px_120px_150px_140px]">
-                <span>Name</span>
-                <span>Status</span>
-                <span>Owner</span>
-                <span>Last Updated</span>
-                <span>Actions</span>
+            ) : error ? (
+              <div className="p-6 text-sm font-medium text-rose-600">
+                {error}
               </div>
+            ) : (
+              <div className="flex flex-col gap-6">
+                {(data?.cookbooks ?? []).map((group) => (
+                  <CookbookGroupCard
+                    key={group.cookbook.id}
+                    group={group}
+                    filterRecipe={filterRecipe}
+                    selectedRecipeId={selectedRecipeId}
+                    setSelectedRecipeId={setSelectedRecipeId}
+                  />
+                ))}
 
-              {isLoading ? (
-                <div className="p-6 text-sm text-text-secondary">
-                  Loading cookbook…
-                </div>
-              ) : error ? (
-                <div className="p-6 text-sm font-medium text-rose-600">
-                  {error}
-                </div>
-              ) : visibleRecipes.length === 0 ? (
-                <div className="p-6">
-                  <div className="empty-state">
-                    No recipes match that search. Try clearing the filter or
-                    creating a new recipe.
+                {allRecipes.length === 0 ? (
+                  <div className="p-6">
+                    <div className="empty-state">
+                      No recipes yet. Create one or run{' '}
+                      <code className="text-xs bg-stone-200 px-1 py-0.5">krewcli onboard</code>{' '}
+                      to get started.
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <div>
-                  {visibleRecipes.map((summary) => {
-                    const bundleLink = summary.activeBundle
-                      ? `/recipes/${summary.recipe.id}?bundle=${summary.activeBundle.id}`
-                      : `/recipes/${summary.recipe.id}`
-
-                    return (
-                      <article
-                        key={summary.recipe.id}
-                        className="table-row md:grid-cols-[minmax(0,2.4fr)_110px_120px_150px_140px]"
-                        onMouseEnter={() => setSelectedRecipeId(summary.recipe.id)}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => setSelectedRecipeId(summary.recipe.id)}
-                          className="text-left"
-                        >
-                          <p className="font-semibold">{summary.recipe.name}</p>
-                          <p className="tiny-copy mt-1">
-                            {truncateText(summary.recipe.repoUrl, 58)}
-                          </p>
-                          <p className="tiny-copy mt-2">
-                            {summary.memberCount} members · {summary.agentCount}{' '}
-                            agents · {summary.activeBundleCount} active bundles
-                          </p>
-                        </button>
-
-                        <div>
-                          {summary.activeBundle ? (
-                            <BundleStatusBadge
-                              status={summary.activeBundle.status}
-                            />
-                          ) : (
-                            <span className="tiny-copy">No active bundle</span>
-                          )}
-                        </div>
-
-                        <div className="text-sm font-medium">
-                          {summary.owners[0] ?? summary.recipe.createdBy}
-                        </div>
-
-                        <div className="tiny-copy">
-                          {summary.latestDigest
-                            ? formatRelativeTime(summary.latestDigest.submittedAt)
-                            : formatRelativeTime(summary.recipe.createdAt)}
-                        </div>
-
-                        <div className="flex flex-wrap items-center gap-3">
-                          <Link href={bundleLink} className="button-inline">
-                            Open
-                            <ArrowUpRight size={14} />
-                          </Link>
-                          <Link
-                            href={`/recipes/${summary.recipe.id}/history`}
-                            className="button-inline"
-                          >
-                            <History size={14} />
-                            History
-                          </Link>
-                        </div>
-                      </article>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
+                ) : null}
+              </div>
+            )}
 
             {selectedSummary?.latestDigest ? (
               <div className="mt-4 panel p-4">
@@ -364,5 +285,231 @@ export function CookbookScreen() {
         onCreated={handleCreated}
       />
     </div>
+  )
+}
+
+function CookbookGroupCard({
+  group,
+  filterRecipe,
+  selectedRecipeId,
+  setSelectedRecipeId,
+}: {
+  group: CookbookGroup
+  filterRecipe: (s: RecipeSummary) => boolean
+  selectedRecipeId: string | null
+  setSelectedRecipeId: (id: string) => void
+}) {
+  const onlineCount = group.agents.filter((a) => a.status !== 'offline').length
+
+  return (
+    <div className="flex flex-col border border-border-strong bg-bg-surface">
+      <div className="flex items-center justify-between border-b border-border-strong px-4 py-3 bg-stone-50">
+        <div className="flex items-center gap-3">
+          <BookOpen size={18} className="text-accent-primary" />
+          <div>
+            <p className="text-[16px] font-bold text-text-primary">{group.cookbook.name}</p>
+            <p className="tiny-copy">
+              {group.recipes.length} recipe{group.recipes.length === 1 ? '' : 's'}
+              {' · '}
+              {onlineCount} agent{onlineCount === 1 ? '' : 's'} online
+              {' · '}
+              owner: {group.cookbook.ownerId}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {group.agents
+            .filter((a) => a.status !== 'offline')
+            .map((agent) => (
+              <span
+                key={agent.agentId}
+                className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-1 text-[11px] font-medium text-emerald-700"
+              >
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                {agent.displayName}
+              </span>
+            ))}
+        </div>
+      </div>
+
+      <RecipeRows
+        recipes={group.recipes.filter(filterRecipe)}
+        selectedRecipeId={selectedRecipeId}
+        setSelectedRecipeId={setSelectedRecipeId}
+      />
+    </div>
+  )
+}
+
+function RecipeTable({
+  title,
+  subtitle,
+  recipes,
+  statusFilter,
+  setStatusFilter,
+  selectedRecipeId,
+  setSelectedRecipeId,
+}: {
+  title: string
+  subtitle: string
+  recipes: readonly RecipeSummary[]
+  statusFilter: StatusFilter
+  setStatusFilter: (s: StatusFilter) => void
+  selectedRecipeId: string | null
+  setSelectedRecipeId: (id: string) => void
+}) {
+  return (
+    <div className="flex flex-col border border-border-strong bg-bg-surface">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-strong px-4 py-4">
+        <div>
+          <p className="text-[18px] font-bold text-text-primary">{title}</p>
+          <p className="tiny-copy mt-1">{subtitle}</p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="inline-flex items-center gap-2">
+            <Filter size={14} className="text-text-secondary" />
+            <select
+              value={statusFilter}
+              onChange={(event) =>
+                setStatusFilter(event.target.value as StatusFilter)
+              }
+              className="select-input w-[160px]"
+            >
+              <option value="all">All statuses</option>
+              <option value="open">Open</option>
+              <option value="claimed">Claimed</option>
+              <option value="cooked">Cooked</option>
+              <option value="blocked">Blocked</option>
+              <option value="digested">Digested</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <RecipeRows
+        recipes={recipes}
+        selectedRecipeId={selectedRecipeId}
+        setSelectedRecipeId={setSelectedRecipeId}
+      />
+    </div>
+  )
+}
+
+function RecipeRows({
+  recipes,
+  selectedRecipeId,
+  setSelectedRecipeId,
+}: {
+  recipes: readonly RecipeSummary[]
+  selectedRecipeId: string | null
+  setSelectedRecipeId: (id: string) => void
+}) {
+  if (recipes.length === 0) {
+    return (
+      <div className="p-4">
+        <p className="tiny-copy">No recipes match the current filter.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      {recipes.map((summary) => {
+        const bundleLink = summary.activeBundle
+          ? `/recipes/${summary.recipe.id}?bundle=${summary.activeBundle.id}`
+          : `/recipes/${summary.recipe.id}`
+
+        return (
+          <article
+            key={summary.recipe.id}
+            className={`table-row md:grid-cols-[minmax(0,2.4fr)_110px_120px_150px_140px] ${
+              selectedRecipeId === summary.recipe.id ? 'bg-stone-50' : ''
+            }`}
+            onMouseEnter={() => setSelectedRecipeId(summary.recipe.id)}
+          >
+            <button
+              type="button"
+              onClick={() => setSelectedRecipeId(summary.recipe.id)}
+              className="text-left"
+            >
+              <p className="font-semibold">{summary.recipe.name}</p>
+              <p className="tiny-copy mt-1">
+                {truncateText(summary.recipe.repoUrl, 58)}
+              </p>
+              <p className="tiny-copy mt-2">
+                {summary.memberCount} members · {summary.agentCount}{' '}
+                agents · {summary.activeBundleCount} active bundles
+              </p>
+            </button>
+
+            <div>
+              {summary.activeBundle ? (
+                <BundleStatusBadge
+                  status={summary.activeBundle.status}
+                />
+              ) : (
+                <span className="tiny-copy">No active bundle</span>
+              )}
+            </div>
+
+            <div className="text-sm font-medium">
+              {summary.owners[0] ?? summary.recipe.createdBy}
+            </div>
+
+            <div className="tiny-copy">
+              {summary.latestDigest
+                ? formatRelativeTime(summary.latestDigest.submittedAt)
+                : formatRelativeTime(summary.recipe.createdAt)}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <Link href={bundleLink} className="button-inline">
+                Open
+                <ArrowUpRight size={14} />
+              </Link>
+              <Link
+                href={`/recipes/${summary.recipe.id}/history`}
+                className="button-inline"
+              >
+                <History size={14} />
+                History
+              </Link>
+            </div>
+          </article>
+        )
+      })}
+    </div>
+  )
+}
+
+function AgentList({ agents }: { agents: readonly AgentPresence[] }) {
+  const online = agents.filter((a) => a.status !== 'offline')
+  const offline = agents.filter((a) => a.status === 'offline')
+
+  return (
+    <>
+      {online.length > 0 ? (
+        <div className="space-y-2">
+          {online.map((agent) => (
+            <div key={agent.agentId} className="flex items-center gap-2 border border-border-strong bg-bg-surface p-3">
+              <span className="h-2 w-2 rounded-full bg-emerald-500 flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-[13px] font-medium">{agent.displayName}</p>
+                <p className="tiny-copy">
+                  {agent.status === 'busy' ? 'Working' : 'Online'}
+                  {agent.currentTaskId ? ` on ${agent.currentTaskId}` : ''}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="tiny-copy">No agents online</p>
+      )}
+      {offline.length > 0 ? (
+        <p className="tiny-copy mt-2">{offline.length} offline</p>
+      ) : null}
+    </>
   )
 }

@@ -35,6 +35,23 @@ import type {
   WorkspaceData,
 } from '@/types'
 
+interface RawCookbook {
+  id: string
+  name: string
+  owner_id: string
+  created_at: string
+}
+
+interface RawCookbookDetailResponse {
+  cookbook: RawCookbook
+  recipes: RawRecipe[]
+  agents: RawAgentPresence[]
+}
+
+interface RawCookbooksResponse {
+  cookbooks: RawCookbook[]
+}
+
 interface RawRecipe {
   id: string
   name: string
@@ -42,6 +59,7 @@ interface RawRecipe {
   default_branch: string
   created_by: string
   created_at: string
+  cookbook_id: string
 }
 
 interface RawRecipeMember {
@@ -55,7 +73,7 @@ interface RawRecipeMember {
 
 interface RawAgentPresence {
   agent_id: string
-  recipe_id: string
+  cookbook_id: string
   display_name: string
   capabilities: string[]
   status: 'online' | 'offline' | 'busy'
@@ -268,6 +286,7 @@ function normalizeRecipe(recipe: RawRecipe): Recipe {
     defaultBranch: recipe.default_branch,
     createdBy: recipe.created_by,
     createdAt: recipe.created_at,
+    cookbookId: recipe.cookbook_id,
   }
 }
 
@@ -285,7 +304,7 @@ function normalizeMember(member: RawRecipeMember) {
 function normalizeAgent(agent: RawAgentPresence) {
   return {
     agentId: agent.agent_id,
-    recipeId: agent.recipe_id,
+    cookbookId: agent.cookbook_id,
     displayName: agent.display_name,
     capabilities: agent.capabilities,
     status: agent.status,
@@ -468,11 +487,12 @@ export async function listCookbookData(
     )
 
     return {
-      recipes: summaries,
+      cookbooks: [],
       selectedRecipeId: summaries[0]?.recipe.id ?? null,
     }
   }
 
+  // Fetch all recipes with details
   const rawRecipes = await requestKrewHub<RawRecipesResponse>(
     '/recipes',
     undefined,
@@ -495,8 +515,42 @@ export async function listCookbookData(
     })
   )
 
+  // Fetch cookbooks and group recipes
+  let rawCookbooks: RawCookbook[] = []
+  try {
+    const cbResponse = await requestKrewHub<RawCookbooksResponse>(
+      '/cookbooks',
+      undefined,
+      proxySettings
+    )
+    rawCookbooks = cbResponse.cookbooks
+  } catch {
+    // KrewHub may not have cookbooks yet — graceful fallback
+  }
+
+  const cookbookGroups = await Promise.all(
+    rawCookbooks.map(async (cb) => {
+      const detail = await requestKrewHub<RawCookbookDetailResponse>(
+        `/cookbooks/${cb.id}`,
+        undefined,
+        proxySettings
+      )
+      const cbRecipeIds = new Set(detail.recipes.map((r) => r.id))
+      return {
+        cookbook: {
+          id: cb.id,
+          name: cb.name,
+          ownerId: cb.owner_id,
+          createdAt: cb.created_at,
+        },
+        recipes: summaries.filter((s) => cbRecipeIds.has(s.recipe.id)),
+        agents: detail.agents.map(normalizeAgent),
+      }
+    })
+  )
+
   return {
-    recipes: summaries,
+    cookbooks: cookbookGroups,
     selectedRecipeId: summaries[0]?.recipe.id ?? null,
   }
 }

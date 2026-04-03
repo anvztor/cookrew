@@ -27,12 +27,23 @@ export type EventType =
   | 'digest_submitted'
   | 'digest_approved'
   | 'digest_rejected'
+  | 'session_start'
+  | 'session_end'
+  | 'tool_use'
+  | 'agent_reply'
 
 export type AgentStatus = 'online' | 'offline' | 'busy'
 
 export type ActorType = 'human' | 'agent' | 'system'
 
 export type DigestDecision = 'pending' | 'approved' | 'rejected'
+
+export interface Cookbook {
+  readonly id: string
+  readonly name: string
+  readonly ownerId: string
+  readonly createdAt: string
+}
 
 export interface Recipe {
   readonly id: string
@@ -41,6 +52,7 @@ export interface Recipe {
   readonly defaultBranch: string
   readonly createdBy: string
   readonly createdAt: string
+  readonly cookbookId: string
 }
 
 export interface RecipeMember {
@@ -54,7 +66,7 @@ export interface RecipeMember {
 
 export interface AgentPresence {
   readonly agentId: string
-  readonly recipeId: string
+  readonly cookbookId: string
   readonly displayName: string
   readonly capabilities: readonly string[]
   readonly status: AgentStatus
@@ -107,7 +119,7 @@ export interface CodeRef {
 export interface Event {
   readonly id: string
   readonly recipeId: string
-  readonly bundleId: string
+  readonly bundleId: string | null
   readonly taskId: string | null
   readonly type: EventType
   readonly actorId: string
@@ -157,8 +169,14 @@ export interface RecipeSummary {
   readonly latestDigest: Digest | null
 }
 
-export interface CookbookData {
+export interface CookbookGroup {
+  readonly cookbook: Cookbook
   readonly recipes: readonly RecipeSummary[]
+  readonly agents: readonly AgentPresence[]
+}
+
+export interface CookbookData {
+  readonly cookbooks: readonly CookbookGroup[]
   readonly selectedRecipeId: string | null
 }
 

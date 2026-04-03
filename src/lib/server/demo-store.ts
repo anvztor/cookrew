@@ -62,6 +62,7 @@ function createInitialState(): DemoState {
       defaultBranch: 'main',
       createdBy: 'mia.owner',
       createdAt: isoMinutesAgo(60 * 24 * 12),
+      cookbookId: 'cb_demo',
     },
     {
       id: 'rec_chipotle',
@@ -70,6 +71,7 @@ function createInitialState(): DemoState {
       defaultBranch: 'main',
       createdBy: 'leo.publisher',
       createdAt: isoMinutesAgo(60 * 24 * 6),
+      cookbookId: 'cb_demo',
     },
     {
       id: 'rec_growth',
@@ -78,6 +80,7 @@ function createInitialState(): DemoState {
       defaultBranch: 'stable',
       createdBy: 'ava.lead',
       createdAt: isoMinutesAgo(60 * 24 * 3),
+      cookbookId: 'cb_demo',
     },
     {
       id: 'rec_audit',
@@ -86,6 +89,7 @@ function createInitialState(): DemoState {
       defaultBranch: 'develop',
       createdBy: 'drew.ops',
       createdAt: isoMinutesAgo(60 * 22),
+      cookbookId: 'cb_demo',
     },
   ]
 
@@ -251,7 +255,7 @@ function member(
 
 function agent(
   agentId: string,
-  recipeId: string,
+  cookbookId: string,
   displayName: string,
   capabilities: string[],
   status: AgentPresence['status'],
@@ -260,7 +264,7 @@ function agent(
 ): AgentPresence {
   return {
     agentId,
-    recipeId,
+    cookbookId,
     displayName,
     capabilities,
     status,
@@ -432,8 +436,8 @@ export function listMembers(recipeId: string): RecipeMember[] {
   return clone(readState().members.filter((entry) => entry.recipeId === recipeId))
 }
 
-export function listAgents(recipeId: string): AgentPresence[] {
-  return clone(readState().agents.filter((entry) => entry.recipeId === recipeId))
+export function listAgents(cookbookId: string): AgentPresence[] {
+  return clone(readState().agents.filter((entry) => entry.cookbookId === cookbookId))
 }
 
 export function listBundles(recipeId: string): Bundle[] {
@@ -505,6 +509,7 @@ export function createRecipeInDemo(input: {
     defaultBranch: input.defaultBranch,
     createdBy: input.createdBy,
     createdAt: new Date().toISOString(),
+    cookbookId: 'cb_demo',
   }
 
   const owner: RecipeMember = {
