@@ -1,23 +1,26 @@
 'use client'
 
-import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Check, History, ShieldAlert, X } from 'lucide-react'
 import {
-  BundleStatusBadge,
-  DecisionBadge,
-  EventTypeBadge,
-  TaskStatusBadge,
-} from '@/components/status-badge'
+  Check,
+  CircleAlert,
+  CircleCheck,
+  Code,
+  FileText,
+  SkipForward,
+  TriangleAlert,
+  X,
+} from 'lucide-react'
 import { decideDigest, getDigestReviewData } from '@/lib/api'
-import { formatRelativeTime, formatTimestamp } from '@/lib/format'
+import { formatDateOnly } from '@/lib/format'
 import type {
   BundleWithDetails,
   CodeRef,
   DigestReviewData,
   FactRef,
   Task,
+  TaskStatus,
 } from '@/types'
 
 interface DigestReviewScreenProps {
@@ -103,6 +106,53 @@ function dedupeCodeRefs(codeRefs: readonly CodeRef[]): CodeRef[] {
   return unique
 }
 
+function countAllPaths(codeRefs: readonly CodeRef[]): number {
+  return codeRefs.reduce((total, ref) => total + ref.paths.length, 0)
+}
+
+function taskStatusIcon(status: TaskStatus) {
+  if (status === 'done') {
+    return <CircleCheck size={18} className="text-emerald-600" />
+  }
+  if (status === 'blocked') {
+    return <CircleAlert size={18} className="text-amber-500" />
+  }
+  return <CircleCheck size={18} className="text-stone-400" />
+}
+
+function taskBadgeLabel(status: TaskStatus): string {
+  if (status === 'done') return 'Merged'
+  if (status === 'blocked') return 'Flagged'
+  if (status === 'cancelled') return 'Cancelled'
+  return status
+}
+
+function taskBadgeClasses(status: TaskStatus): string {
+  if (status === 'done') {
+    return 'bg-[#7EB5A6] text-white border-[#5A9A8A]'
+  }
+  if (status === 'blocked') {
+    return 'bg-[#FFD600] text-[#5C4A1F] border-[#2D2A20]'
+  }
+  return 'bg-stone-100 text-stone-700 border-stone-300'
+}
+
+function decisionBadgeLabel(decision: string): string {
+  if (decision === 'approved') return 'Approved'
+  if (decision === 'rejected') return 'Changes'
+  return 'Pending Review'
+}
+
+function decisionBadgeClasses(decision: string): string {
+  if (decision === 'approved') {
+    return 'bg-[#7EB5A6] text-white border-[#5A9A8A]'
+  }
+  if (decision === 'rejected') {
+    return 'bg-[#FFD600] text-[#5C4A1F] border-[#2D2A20]'
+  }
+  return 'bg-[#7EB5A6] text-white border-[#5A9A8A]'
+}
+
 export function DigestReviewScreen({
   recipeId,
   bundleId,
@@ -111,7 +161,6 @@ export function DigestReviewScreen({
   const [data, setData] = useState<DigestReviewData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [reviewer, setReviewer] = useState('cookrew-reviewer')
   const [note, setNote] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -160,7 +209,7 @@ export function DigestReviewScreen({
     try {
       const result = await decideDigest(recipeId, bundleId, {
         decision,
-        decidedBy: reviewer.trim() || 'cookrew-reviewer',
+        decidedBy: data.recipe.createdBy || 'cookrew-reviewer',
         note,
       })
 
@@ -190,7 +239,7 @@ export function DigestReviewScreen({
     : []
   const taskOutcomes = selectedBundle
     ? selectedBundle.tasks.map((task) => ({
-        taskId: task.id,
+        task,
         outcome:
           digest?.taskResults.find((entry) => entry.taskId === task.id)?.outcome ??
           buildTaskOutcome(task, selectedBundle.events),
@@ -210,321 +259,317 @@ export function DigestReviewScreen({
       ].filter(Boolean)
     : []
 
+  const filesChanged = countAllPaths(reviewCodeRefs)
+  const completedTasks = selectedBundle
+    ? selectedBundle.tasks.filter((t) => t.status === 'done').length
+    : 0
+
   return (
-    <div className="flex min-h-screen flex-col bg-bg-primary font-sans text-text-primary">
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <header className="page-header">
-          <div className="flex flex-col gap-1">
-            <h1 className="page-title">
-              Cookrew / Bundle Review
-            </h1>
-            <p className="text-[13px] font-medium text-text-secondary">
-              Inspect task traces, fact refs, code refs, and any submitted digest.
-            </p>
-          </div>
+    <div className="flex min-h-screen flex-col bg-[#FAF8F4] font-sans text-[#2D2A20]">
+      {/* Header */}
+      <header className="flex items-center justify-between border-b border-[#2D2A20] bg-[#FFFEF5] px-5 py-4">
+        <h1 className="text-[22px] font-bold tracking-wide">
+          COOKREW / DIGEST REVIEW
+        </h1>
+        <div className="flex items-center gap-3">
+          {digest ? (
+            <span className="inline-flex items-center rounded-md border border-[#2D2A20] bg-[#FFD600] px-2 py-0.5 text-xs font-medium text-[#5C4A1F]">
+              Digest #{digest.id.slice(-4)}
+            </span>
+          ) : (
+            <span className="inline-flex items-center rounded-md border border-[#2D2A20] bg-[#FFD600] px-2 py-0.5 text-xs font-medium text-[#5C4A1F]">
+              Bundle {bundleId.slice(-6)}
+            </span>
+          )}
+          <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium ${
+            digest ? decisionBadgeClasses(digest.decision) : 'bg-[#7EB5A6] text-white border-[#5A9A8A]'
+          }`}>
+            {digest ? decisionBadgeLabel(digest.decision) : 'Pending Review'}
+          </span>
+        </div>
+      </header>
 
-          <div className="button-row">
-            <Link
-              href={`/recipes/${recipeId}?bundle=${bundleId}`}
-              className="button-base button-secondary"
-            >
-              <ArrowLeft size={16} />
-              Back to Workspace
-            </Link>
-            <Link
-              href={`/recipes/${recipeId}/history`}
-              className="button-base button-secondary"
-            >
-              <History size={16} />
-              Approved History
-            </Link>
+      {isLoading ? (
+        <div className="p-6 text-sm text-[#57534E]">Loading digest review...</div>
+      ) : error ? (
+        <div className="p-6 text-sm font-medium text-rose-600">{error}</div>
+      ) : !selectedBundle ? (
+        <div className="p-6">
+          <div className="border border-dashed border-[#2D2A20] bg-white/45 p-5 text-center text-[#57534E]">
+            No review data is available for this bundle yet.
           </div>
-        </header>
-
-        {isLoading ? (
-          <div className="p-6 text-sm text-text-secondary">
-            Loading bundle review…
-          </div>
-        ) : error ? (
-          <div className="p-6 text-sm font-medium text-rose-600">{error}</div>
-        ) : !selectedBundle ? (
-          <div className="p-6">
-            <div className="empty-state">
-              No review data is available for this bundle yet.
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-1 overflow-hidden bg-bg-primary">
-            <main className="flex-1 bg-bg-primary p-6 overflow-y-auto">
-              <div className="surface-grid">
-                <section className="panel p-4 md:p-5">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="text-[18px] font-bold text-text-primary">
-                        {digest ? 'Digest Summary' : 'Live Bundle Trace'}
-                      </p>
-                      <h2 className="text-[28px] font-bold text-text-primary">
-                        Bundle {selectedBundle.bundle.id}
-                      </h2>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2">
-                      <BundleStatusBadge status={selectedBundle.bundle.status} />
-                      {digest ? (
-                        <DecisionBadge decision={digest.decision} />
-                      ) : (
-                        <span className="status-badge tone-slate">Awaiting digest</span>
-                      )}
-                    </div>
-                  </div>
-
-                  <p className="mt-4 text-sm leading-7">
+        </div>
+      ) : (
+        <div className="flex flex-1 overflow-hidden">
+          {/* Main Content */}
+          <main className="flex-1 overflow-y-auto bg-[#FAF8F4] p-6">
+            <div className="flex flex-col gap-5">
+              {/* Digest Summary Card */}
+              <section className="border border-[#2D2A20] bg-[#FFFEF5]">
+                <div className="flex items-center justify-between border-b border-[#2D2A20] px-4 py-3.5">
+                  <span className="text-base font-bold">
+                    {digest ? 'Digest Summary' : 'Live Bundle Trace'}
+                  </span>
+                  <span className="text-xs font-medium text-[#57534E]">
+                    {digest
+                      ? `Generated ${formatDateOnly(digest.submittedAt)}`
+                      : 'In progress'}
+                  </span>
+                </div>
+                <div className="flex flex-col gap-3 p-4">
+                  <p className="text-sm leading-6 text-[#57534E]">
                     {digest
                       ? digest.summary
-                      : `${selectedBundle.bundle.prompt} Review is available before digest submission so you can inspect the live trace, facts, and code refs as work unfolds.`}
+                      : selectedBundle.bundle.prompt}
                   </p>
-
-                  {digest ? null : (
-                    <div className="mt-4 panel-muted p-3 text-sm">
-                      No digest has been submitted yet. This page is showing the current bundle
-                      trace and evidence set.
+                  <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                    <div className="flex flex-col gap-1 border border-[#2D2A20] bg-[#FFFBEB] p-3">
+                      <span className="text-[22px] font-bold">{completedTasks}</span>
+                      <span className="text-xs font-medium text-[#57534E]">Tasks Completed</span>
                     </div>
-                  )}
-
-                  <div className="mt-5 grid gap-3 md:grid-cols-4">
-                    <div className="flex flex-col gap-[6px] border border-border-strong bg-bg-surface p-3">
-                      <p className="text-[13px] font-bold text-text-primary">Task Results</p>
-                      <p className="text-[28px] font-bold text-text-primary">
-                        {taskOutcomes.length}
-                      </p>
+                    <div className="flex flex-col gap-1 border border-[#2D2A20] bg-[#ECFDF5] p-3">
+                      <span className="text-[22px] font-bold">{filesChanged}</span>
+                      <span className="text-xs font-medium text-[#57534E]">Files Changed</span>
                     </div>
-                    <div className="flex flex-col gap-[6px] border border-border-strong bg-bg-surface p-3">
-                      <p className="text-[13px] font-bold text-text-primary">Fact References</p>
-                      <p className="text-[28px] font-bold text-text-primary">
-                        {reviewFacts.length}
-                      </p>
+                    <div className="flex flex-col gap-1 border border-[#2D2A20] bg-[#F3E8FF] p-3">
+                      <span className="text-[22px] font-bold">{reviewFlags.length}</span>
+                      <span className="text-xs font-medium text-[#57534E]">Flags Raised</span>
                     </div>
-                    <div className="flex flex-col gap-[6px] border border-border-strong bg-bg-surface p-3">
-                      <p className="text-[13px] font-bold text-text-primary">Code References</p>
-                      <p className="text-[28px] font-bold text-text-primary">
-                        {reviewCodeRefs.length}
-                      </p>
-                    </div>
-                    <div className="flex flex-col gap-[6px] border border-border-strong bg-bg-surface p-3">
-                      <p className="text-[13px] font-bold text-text-primary">
-                        {digest ? 'Submitted' : 'Trace Status'}
-                      </p>
-                      <p className="text-[14px] font-bold text-text-primary">
-                        {digest ? formatRelativeTime(digest.submittedAt) : 'Live'}
-                      </p>
+                    <div className="flex flex-col gap-1 border border-[#2D2A20] bg-[#EFF6FF] p-3">
+                      <span className="text-[22px] font-bold">{reviewFacts.length}</span>
+                      <span className="text-xs font-medium text-[#57534E]">Fact References</span>
                     </div>
                   </div>
-                </section>
-
-                <section className="panel p-4 md:p-5">
-                  <p className="mb-4 text-[18px] font-bold text-text-primary">Task Outcomes</p>
-                  <div className="space-y-3">
-                    {selectedBundle.tasks.map((task) => {
-                      const result = taskOutcomes.find(
-                        (entry) => entry.taskId === task.id
-                      )
-
-                      return (
-                        <div key={task.id} className="panel-muted p-3">
-                          <div className="flex flex-wrap items-start justify-between gap-3">
-                            <div>
-                              <p className="font-medium">{task.title}</p>
-                              <p className="tiny-copy mt-1">
-                                {result?.outcome ?? 'No explicit outcome recorded.'}
-                              </p>
-                            </div>
-                            <TaskStatusBadge status={task.status} />
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </section>
-
-                <section className="grid gap-4 lg:grid-cols-2">
-                  <div className="panel p-4 md:p-5">
-                    <p className="mb-4 text-[18px] font-bold text-text-primary">Fact References</p>
-                    <div className="space-y-3">
-                      {reviewFacts.length === 0 ? (
-                        <div className="panel-muted p-3 text-sm">
-                          No fact references have been captured for this bundle yet.
-                        </div>
-                      ) : reviewFacts.map((fact) => (
-                        <div key={fact.id} className="panel-muted p-3">
-                          <p className="font-medium">{fact.claim}</p>
-                          <p className="tiny-copy mt-1">
-                            {fact.sourceTitle ?? 'Source note unavailable'}
-                          </p>
-                          <p className="tiny-copy mt-1">
-                            Captured by {fact.capturedBy}
-                            {fact.confidence !== null
-                              ? ` · confidence ${Math.round(fact.confidence * 100)}%`
-                              : ''}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="panel p-4 md:p-5">
-                    <p className="mb-4 text-[18px] font-bold text-text-primary">Code References</p>
-                    <div className="space-y-3">
-                      {reviewCodeRefs.length === 0 ? (
-                        <div className="panel-muted p-3 text-sm">
-                          No code references have been attached to this bundle yet.
-                        </div>
-                      ) : reviewCodeRefs.map((codeRef, index) => (
-                        <div
-                          key={`${codeRef.commitSha}-${codeRef.branch}-${index}`}
-                          className="panel-muted p-3"
-                        >
-                          <p className="font-medium">{codeRef.branch}</p>
-                          <p className="tiny-copy mt-1">{codeRef.repoUrl}</p>
-                          <p className="tiny-copy mt-1">
-                            Commit {codeRef.commitSha}
-                          </p>
-                          <p className="tiny-copy mt-2">
-                            {codeRef.paths.join(', ')}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </section>
-
-                <section className="panel p-4 md:p-5">
-                  <p className="mb-4 text-[18px] font-bold text-text-primary">Relevant Timeline</p>
-                  <div className="space-y-3">
-                    {selectedBundle.events.map((event) => (
-                      <div key={event.id} className="panel-muted p-3">
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <div className="flex items-center gap-2">
-                            <EventTypeBadge type={event.type} />
-                            <span className="font-medium">{event.actorId}</span>
-                          </div>
-                          <span className="tiny-copy">
-                            {formatRelativeTime(event.createdAt)}
-                          </span>
-                        </div>
-                        <p className="mt-3 text-sm leading-6">{event.body}</p>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              </div>
-            </main>
-
-            <aside className="flex w-[340px] flex-shrink-0 flex-col gap-5 border-l border-border-strong bg-bg-surface p-5 overflow-y-auto">
-              <div className="flex flex-col gap-3 border border-border-strong bg-bg-surface p-4">
-                <p className="text-[18px] font-bold text-text-primary mb-3">Decision</p>
-                <div className="space-y-3 text-sm">
-                  <div className="panel-muted p-3">
-                    <p className="text-[13px] font-bold text-text-primary">
-                      {digest ? 'Submitted By' : 'Review Status'}
-                    </p>
-                    {digest ? (
-                      <>
-                        <p>{digest.submittedBy}</p>
-                        <p className="tiny-copy mt-1">
-                          {formatTimestamp(digest.submittedAt)}
-                        </p>
-                      </>
-                    ) : (
-                      <p>Awaiting agent-submitted digest before a decision can be recorded.</p>
-                    )}
-                  </div>
-                  <div className="panel-muted p-3">
-                    <p className="text-[13px] font-bold text-text-primary">Bundle Status</p>
-                    <BundleStatusBadge status={selectedBundle.bundle.status} />
-                  </div>
-                  {digest ? (
-                    <>
-                      <label className="block">
-                        <span className="field-label">Reviewer</span>
-                        <input
-                          value={reviewer}
-                          onChange={(event) => setReviewer(event.target.value)}
-                          className="text-input"
-                        />
-                      </label>
-                      <label className="block">
-                        <span className="field-label">Decision Note</span>
-                        <textarea
-                          value={note}
-                          onChange={(event) => setNote(event.target.value)}
-                          className="text-area"
-                          placeholder="Capture the merge note or what still needs work."
-                        />
-                      </label>
-                    </>
-                  ) : null}
                 </div>
+              </section>
 
-                {digest ? (
-                  <>
-                    <div className="button-row mt-4">
-                      <button
-                        type="button"
-                        onClick={() => void handleDecision('approved')}
-                        className="button-base button-primary"
-                        disabled={isSubmitting || digest.decision !== 'pending'}
-                      >
-                        <Check size={16} />
-                        Approve Digest
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void handleDecision('rejected')}
-                        className="button-base button-danger"
-                        disabled={isSubmitting || digest.decision !== 'pending'}
-                      >
-                        <X size={16} />
-                        Reject Changes
-                      </button>
-                    </div>
-
-                    {digest.decision !== 'pending' ? (
-                      <p className="tiny-copy mt-3">
-                        This digest already has a recorded decision.
-                      </p>
-                    ) : null}
-                  </>
-                ) : (
-                  <p className="tiny-copy mt-3">
-                    Review is available now, but approval stays disabled until a digest is
-                    submitted.
-                  </p>
-                )}
-              </div>
-
-              <div className="flex flex-col gap-3 border border-border-strong bg-bg-surface p-4">
-                <p className="text-[18px] font-bold text-text-primary flex items-center gap-2">
-                  <ShieldAlert size={16} />
-                  Review Flags
-                </p>
-                {reviewFlags.length === 0 ? (
-                  <div className="panel-muted p-3 text-sm">
-                    No major review flags surfaced from the current digest data.
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {reviewFlags.map((flag) => (
-                      <div key={flag} className="panel-muted p-3 text-sm">
-                        {flag}
+              {/* Task Outcomes Card */}
+              <section className="border border-[#2D2A20] bg-[#FFFEF5]">
+                <div className="flex items-center justify-between border-b border-[#2D2A20] px-4 py-3.5">
+                  <span className="text-base font-bold">Task Outcomes</span>
+                  <span className="text-xs font-medium text-[#57534E]">
+                    {taskOutcomes.length} task{taskOutcomes.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+                <div className="flex flex-col">
+                  {taskOutcomes.map(({ task, outcome }, index) => (
+                    <div
+                      key={task.id}
+                      className={`flex items-center gap-3 px-4 py-3 ${
+                        index < taskOutcomes.length - 1
+                          ? 'border-b border-[#2D2A20]'
+                          : ''
+                      }`}
+                    >
+                      {taskStatusIcon(task.status)}
+                      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                        <span className="text-sm font-semibold">{task.title}</span>
+                        <span className="text-xs text-[#57534E]">{outcome}</span>
                       </div>
-                    ))}
-                  </div>
-                )}
+                      <span className={`inline-flex shrink-0 items-center rounded-md border px-2 py-0.5 text-xs font-medium ${taskBadgeClasses(task.status)}`}>
+                        {taskBadgeLabel(task.status)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              {/* Fact References Card */}
+              <section className="border border-[#2D2A20] bg-[#FFFEF5]">
+                <div className="flex items-center justify-between border-b border-[#2D2A20] px-4 py-3.5">
+                  <span className="text-base font-bold">Fact References</span>
+                  <span className="text-xs font-medium text-[#57534E]">
+                    {reviewFacts.length} reference{reviewFacts.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+                <div className="flex flex-col">
+                  {reviewFacts.length === 0 ? (
+                    <div className="p-4 text-sm text-[#57534E]">
+                      No fact references have been captured for this bundle yet.
+                    </div>
+                  ) : (
+                    reviewFacts.map((fact, index) => (
+                      <div
+                        key={fact.id}
+                        className={`flex items-center gap-2.5 px-4 py-2.5 ${
+                          index < reviewFacts.length - 1
+                            ? 'border-b border-[#E5E2DC]'
+                            : ''
+                        }`}
+                      >
+                        <FileText size={16} className="shrink-0 text-[#FFD600]" />
+                        <span className="min-w-0 flex-1 text-[13px] font-medium">
+                          {fact.claim}
+                        </span>
+                        <span className="shrink-0 text-[11px] text-[#57534E]">
+                          {fact.sourceTitle ?? fact.capturedBy}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </section>
+
+              {/* Code References Card */}
+              <section className="border border-[#2D2A20] bg-[#FFFEF5]">
+                <div className="flex items-center justify-between border-b border-[#2D2A20] px-4 py-3.5">
+                  <span className="text-base font-bold">Code References</span>
+                  <span className="text-xs font-medium text-[#57534E]">
+                    {filesChanged} file{filesChanged !== 1 ? 's' : ''}
+                  </span>
+                </div>
+                <div className="flex flex-col">
+                  {reviewCodeRefs.length === 0 ? (
+                    <div className="p-4 text-sm text-[#57534E]">
+                      No code references have been attached to this bundle yet.
+                    </div>
+                  ) : (
+                    reviewCodeRefs.flatMap((codeRef, refIndex) =>
+                      codeRef.paths.map((filePath, pathIndex) => {
+                        const isLast =
+                          refIndex === reviewCodeRefs.length - 1 &&
+                          pathIndex === codeRef.paths.length - 1
+                        return (
+                          <div
+                            key={`${codeRef.commitSha}-${filePath}`}
+                            className={`flex items-center gap-2.5 px-4 py-2.5 ${
+                              isLast ? '' : 'border-b border-[#E5E2DC]'
+                            }`}
+                          >
+                            <Code size={16} className="shrink-0 text-[#9333EA]" />
+                            <span className="min-w-0 flex-1 font-mono text-xs font-medium">
+                              {filePath}
+                            </span>
+                            <span className="shrink-0 font-mono text-[11px] font-medium text-emerald-600">
+                              {codeRef.commitSha.slice(0, 7)}
+                            </span>
+                          </div>
+                        )
+                      })
+                    )
+                  )}
+                </div>
+              </section>
+            </div>
+          </main>
+
+          {/* Sidebar */}
+          <aside className="flex w-[360px] shrink-0 flex-col gap-4 overflow-y-auto border-l border-[#2D2A20] bg-[#FFFEF5] p-5">
+            <h2 className="text-lg font-bold">Decision</h2>
+
+            {/* Digest Metadata */}
+            <div className="flex flex-col gap-2.5 border border-[#2D2A20] bg-[#FFFBEB] p-3.5">
+              <span className="text-sm font-bold">Digest Metadata</span>
+              <MetaRow label="Digest ID" value={digest ? `#${digest.id.slice(-4)}` : '--'} />
+              <MetaRow label="Recipe" value={data?.recipe.name ?? '--'} />
+              <MetaRow label="Branch" value={data?.recipe.defaultBranch ?? '--'} />
+              <MetaRow label="Author" value={selectedBundle.bundle.createdBy} />
+              <MetaRow
+                label="Bundle Status"
+                value={selectedBundle.bundle.status}
+              />
+              <MetaRow
+                label="Created"
+                value={formatDateOnly(selectedBundle.bundle.createdAt)}
+              />
+            </div>
+
+            {/* Review Flags */}
+            {reviewFlags.length > 0 && (
+              <div className="flex flex-col gap-2 border border-[#2D2A20] bg-[#FEF2F2] p-3.5">
+                <div className="flex items-center gap-2">
+                  <TriangleAlert size={16} className="text-red-600" />
+                  <span className="text-sm font-bold text-red-600">Review Flags</span>
+                </div>
+                {reviewFlags.map((flag) => (
+                  <p key={flag} className="text-xs leading-[1.4] text-[#57534E]">
+                    {flag}
+                  </p>
+                ))}
               </div>
-            </aside>
-          </div>
-        )}
-      </div>
+            )}
+
+            {/* Reviewer Note */}
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[13px] font-semibold">Reviewer Note</span>
+              <textarea
+                value={note}
+                onChange={(event) => setNote(event.target.value)}
+                placeholder="Add a note for the digest decision log..."
+                className="h-20 w-full border border-[#2D2A20] bg-[#FFFEF5] p-2.5 text-[13px] outline-none placeholder:text-[#A8A29E] focus-visible:ring-2 focus-visible:ring-[#FFD600]/30"
+              />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col gap-2.5">
+              <button
+                type="button"
+                onClick={() => void handleDecision('approved')}
+                disabled={isSubmitting || !digest || digest.decision !== 'pending'}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#2D2A20] bg-[#FFD600] px-4 py-2.5 text-sm font-medium text-[#5C4A1F] shadow-[4px_4px_0_#282623] transition-all hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0_#282623] disabled:opacity-50 disabled:shadow-none disabled:hover:translate-x-0 disabled:hover:translate-y-0"
+              >
+                <Check size={16} />
+                Approve Digest
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleDecision('rejected')}
+                disabled={isSubmitting || !digest || digest.decision !== 'pending'}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#2D2A20] bg-[#FFFEF5] px-4 py-2.5 text-sm font-medium text-red-600 shadow-[4px_4px_0_#282623] transition-all hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0_#282623] disabled:opacity-50 disabled:shadow-none disabled:hover:translate-x-0 disabled:hover:translate-y-0"
+              >
+                <X size={16} />
+                Request Changes
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push(`/recipes/${recipeId}`)}
+                disabled={isSubmitting}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#2D2A20] bg-[#FFFEF5] px-4 py-2.5 text-sm font-medium text-[#5C4A1F] shadow-[4px_4px_0_#282623] transition-all hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0_#282623] disabled:opacity-50 disabled:shadow-none disabled:hover:translate-x-0 disabled:hover:translate-y-0"
+              >
+                <SkipForward size={16} />
+                Defer Decision
+              </button>
+            </div>
+
+            {/* Decision History */}
+            {digest && digest.decision !== 'pending' && (
+              <div className="flex flex-col gap-2.5 border-t border-[#E5E2DC] pt-3">
+                <span className="text-[13px] font-bold">Decision History</span>
+                <div className="flex flex-col gap-0.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium ${decisionBadgeClasses(digest.decision)}`}>
+                      {decisionBadgeLabel(digest.decision)}
+                    </span>
+                    <span className="text-[11px] text-[#57534E]">
+                      {formatDateOnly(digest.decidedAt)}
+                    </span>
+                  </div>
+                  {digest.decidedBy && (
+                    <span className="text-[11px] text-[#78716C]">
+                      by {digest.decidedBy}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+          </aside>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function MetaRow({
+  label,
+  value,
+}: {
+  readonly label: string
+  readonly value: string
+}) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-xs font-medium text-[#57534E]">{label}</span>
+      <span className="font-mono text-xs font-medium">{value}</span>
     </div>
   )
 }
