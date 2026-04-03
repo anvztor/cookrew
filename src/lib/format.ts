@@ -89,23 +89,6 @@ export function bundleTone(status: BundleStatus): string {
   }
 }
 
-export function taskTone(status: TaskStatus): string {
-  switch (status) {
-    case 'open':
-      return 'slate'
-    case 'claimed':
-      return 'blue'
-    case 'working':
-      return 'amber'
-    case 'done':
-      return 'emerald'
-    case 'blocked':
-      return 'rose'
-    case 'cancelled':
-      return 'slate'
-  }
-}
-
 export function decisionTone(decision: DigestDecision): string {
   switch (decision) {
     case 'pending':
@@ -114,31 +97,6 @@ export function decisionTone(decision: DigestDecision): string {
       return 'emerald'
     case 'rejected':
       return 'rose'
-  }
-}
-
-export function eventTone(type: EventType): string {
-  switch (type) {
-    case 'prompt':
-      return 'violet'
-    case 'plan':
-      return 'blue'
-    case 'task_claimed':
-      return 'slate'
-    case 'milestone':
-      return 'emerald'
-    case 'fact_added':
-      return 'amber'
-    case 'code_pushed':
-      return 'blue'
-    case 'digest_submitted':
-      return 'amber'
-    case 'digest_approved':
-      return 'emerald'
-    case 'digest_rejected':
-      return 'rose'
-    default:
-      return 'slate'
   }
 }
 

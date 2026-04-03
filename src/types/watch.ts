@@ -8,9 +8,3 @@ export interface WatchEvent<T = Record<string, unknown>> {
   readonly object: T
   readonly seq: number
 }
-
-export interface WatchOptions {
-  readonly recipeId?: string
-  readonly resourceType?: string
-  readonly since?: number
-}

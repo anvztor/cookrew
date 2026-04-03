@@ -1,15 +1,11 @@
 import {
   bundleTone,
   decisionTone,
-  eventTone,
   formatStatusLabel,
-  taskTone,
 } from '@/lib/format'
 import type {
   BundleStatus,
   DigestDecision,
-  EventType,
-  TaskStatus,
 } from '@/types'
 
 type Tone = 'slate' | 'blue' | 'amber' | 'emerald' | 'rose' | 'violet'
@@ -36,22 +32,10 @@ export function BundleStatusBadge({
   return <ToneBadge label={status} tone={bundleTone(status) as Tone} />
 }
 
-export function TaskStatusBadge({ status }: { readonly status: TaskStatus }) {
-  return <ToneBadge label={status} tone={taskTone(status) as Tone} />
-}
-
 export function DecisionBadge({
   decision,
 }: {
   readonly decision: DigestDecision
 }) {
   return <ToneBadge label={decision} tone={decisionTone(decision) as Tone} />
-}
-
-export function EventTypeBadge({
-  type,
-}: {
-  readonly type: EventType
-}) {
-  return <ToneBadge label={type} tone={eventTone(type) as Tone} />
 }

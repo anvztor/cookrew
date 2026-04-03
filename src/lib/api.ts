@@ -2,6 +2,7 @@
 
 import type {
   CookbookData,
+  CookbookDetailData,
   CreateBundleInput,
   CreateRecipeInput,
   DecisionInput,
@@ -48,6 +49,10 @@ export async function getCookbookData(): Promise<CookbookData> {
   return requestJson<CookbookData>('/api/recipes')
 }
 
+export async function getCookbookDetailData(cookbookId: string): Promise<CookbookDetailData> {
+  return requestJson<CookbookDetailData>(`/api/cookbooks/${cookbookId}`)
+}
+
 export async function createRecipe(input: CreateRecipeInput): Promise<Recipe> {
   return requestJson<Recipe>('/api/recipes', {
     method: 'POST',
@@ -61,25 +66,6 @@ export async function getWorkspaceData(
 ): Promise<WorkspaceData> {
   const search = bundleId ? `?bundleId=${encodeURIComponent(bundleId)}` : ''
   return requestJson<WorkspaceData>(`/api/recipes/${recipeId}${search}`)
-}
-
-export interface PlannedTask {
-  readonly title: string
-  readonly description: string
-  readonly dependsOn: readonly number[]
-}
-
-export async function planTasks(
-  recipeId: string,
-  prompt: string
-): Promise<{ tasks: PlannedTask[] }> {
-  return requestJson<{ tasks: PlannedTask[] }>(
-    `/api/recipes/${recipeId}/plan`,
-    {
-      method: 'POST',
-      body: JSON.stringify({ prompt }),
-    }
-  )
 }
 
 export async function createBundle(

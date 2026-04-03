@@ -21,6 +21,7 @@ import type {
   BundleWithDetails,
   CodeRef,
   CookbookData,
+  CookbookDetailData,
   CreateBundleInput,
   CreateRecipeInput,
   DecisionInput,
@@ -476,19 +477,32 @@ export async function listCookbookData(
 ): Promise<CookbookData> {
   if (!hasKrewHubProxy(proxySettings)) {
     const recipes = listRecipes()
-    const summaries = recipes.map((recipe) =>
-      buildSummary({
-        recipe,
-        members: listMembers(recipe.id),
-        agents: listAgents(recipe.id),
-        bundles: listBundles(recipe.id),
-        digests: listApprovedDigests(recipe.id),
-      })
-    )
+    // Group demo recipes by cookbookId
+    const cookbookMap = new Map<string, typeof recipes>()
+    for (const recipe of recipes) {
+      const cbId = recipe.cookbookId
+      const group = cookbookMap.get(cbId) ?? []
+      group.push(recipe)
+      cookbookMap.set(cbId, group)
+    }
+
+    const cookbooks = Array.from(cookbookMap.entries()).map(([cbId, cbRecipes]) => ({
+      cookbook: { id: cbId, name: cbId, ownerId: 'demo', createdAt: cbRecipes[0].createdAt },
+      recipes: cbRecipes.map((recipe) =>
+        buildSummary({
+          recipe,
+          members: listMembers(recipe.id),
+          agents: listAgents(recipe.cookbookId),
+          bundles: listBundles(recipe.id),
+          digests: listApprovedDigests(recipe.id),
+        })
+      ),
+      agents: listAgents(cbId),
+    }))
 
     return {
-      cookbooks: [],
-      selectedRecipeId: summaries[0]?.recipe.id ?? null,
+      cookbooks,
+      selectedRecipeId: recipes[0]?.id ?? null,
     }
   }
 
@@ -552,6 +566,93 @@ export async function listCookbookData(
   return {
     cookbooks: cookbookGroups,
     selectedRecipeId: summaries[0]?.recipe.id ?? null,
+  }
+}
+
+export async function getCookbookDetailData(
+  cookbookId: string,
+  proxySettings: ProxySettings = getProxySettings()
+): Promise<CookbookDetailData | null> {
+  if (!hasKrewHubProxy(proxySettings)) {
+    const recipes = listRecipes()
+    const cbRecipes = recipes.filter((r) => r.cookbookId === cookbookId)
+    if (cbRecipes.length === 0) {
+      return null
+    }
+
+    const allMembers = cbRecipes.flatMap((r) => listMembers(r.id))
+
+    return {
+      cookbook: { id: cookbookId, name: cookbookId, ownerId: 'demo', createdAt: cbRecipes[0].createdAt },
+      recipes: cbRecipes.map((recipe) =>
+        buildSummary({
+          recipe,
+          members: listMembers(recipe.id),
+          agents: listAgents(recipe.cookbookId),
+          bundles: listBundles(recipe.id),
+          digests: listApprovedDigests(recipe.id),
+        })
+      ),
+      agents: listAgents(cookbookId),
+      members: allMembers,
+    }
+  }
+
+  const detail = await nullOnNotFound(
+    requestKrewHub<RawCookbookDetailResponse>(
+      `/cookbooks/${cookbookId}`,
+      undefined,
+      proxySettings
+    )
+  )
+  if (!detail) {
+    return null
+  }
+
+  const recipeDetails = await Promise.all(
+    detail.recipes.map((raw) =>
+      requestKrewHub<RawRecipeDetailResponse>(
+        `/recipes/${raw.id}`,
+        undefined,
+        proxySettings
+      )
+    )
+  )
+
+  const recipes = recipeDetails.map((rd) =>
+    buildSummary({
+      recipe: normalizeRecipe(rd.recipe),
+      members: rd.members.map(normalizeMember),
+      agents: rd.agents.map(normalizeAgent),
+      bundles: rd.bundles.map(normalizeBundle),
+      digests: rd.digests.map(normalizeDigest),
+    })
+  )
+
+  const allMembers = recipeDetails.flatMap((rd) =>
+    rd.members.map(normalizeMember)
+  )
+
+  // Dedupe members by actorId
+  const seenActors = new Set<string>()
+  const uniqueMembers: RecipeMember[] = []
+  for (const member of allMembers) {
+    if (!seenActors.has(member.actorId)) {
+      seenActors.add(member.actorId)
+      uniqueMembers.push(member)
+    }
+  }
+
+  return {
+    cookbook: {
+      id: detail.cookbook.id,
+      name: detail.cookbook.name,
+      ownerId: detail.cookbook.owner_id,
+      createdAt: detail.cookbook.created_at,
+    },
+    recipes,
+    agents: detail.agents.map(normalizeAgent),
+    members: uniqueMembers,
   }
 }
 
@@ -780,7 +881,7 @@ export async function getWorkspaceData(
     return {
       recipe,
       members: listMembers(recipeId),
-      agents: listAgents(recipeId),
+      agents: listAgents(recipe.cookbookId),
       bundles,
       recentDigests: listApprovedDigests(recipeId).slice(0, 4),
       selectedBundleId,

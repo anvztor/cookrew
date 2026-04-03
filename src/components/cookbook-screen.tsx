@@ -7,7 +7,6 @@ import {
   ArrowUpRight,
   Bot,
   BookOpen,
-  Filter,
   FolderGit2,
   History,
   Plus,
@@ -33,7 +32,7 @@ export function CookbookScreen() {
   const [isLoading, setIsLoading] = useState(true)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [statusFilter] = useState<StatusFilter>('all')
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null)
   const deferredSearch = useDeferredValue(search)
 
@@ -304,7 +303,10 @@ function CookbookGroupCard({
   return (
     <div className="flex flex-col border border-border-strong bg-bg-surface">
       <div className="flex items-center justify-between border-b border-border-strong px-4 py-3 bg-stone-50">
-        <div className="flex items-center gap-3">
+        <Link
+          href={`/cookbooks/${group.cookbook.id}`}
+          className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+        >
           <BookOpen size={18} className="text-accent-primary" />
           <div>
             <p className="text-[16px] font-bold text-text-primary">{group.cookbook.name}</p>
@@ -316,7 +318,7 @@ function CookbookGroupCard({
               owner: {group.cookbook.ownerId}
             </p>
           </div>
-        </div>
+        </Link>
         <div className="flex items-center gap-2">
           {group.agents
             .filter((a) => a.status !== 'offline')
@@ -334,61 +336,6 @@ function CookbookGroupCard({
 
       <RecipeRows
         recipes={group.recipes.filter(filterRecipe)}
-        selectedRecipeId={selectedRecipeId}
-        setSelectedRecipeId={setSelectedRecipeId}
-      />
-    </div>
-  )
-}
-
-function RecipeTable({
-  title,
-  subtitle,
-  recipes,
-  statusFilter,
-  setStatusFilter,
-  selectedRecipeId,
-  setSelectedRecipeId,
-}: {
-  title: string
-  subtitle: string
-  recipes: readonly RecipeSummary[]
-  statusFilter: StatusFilter
-  setStatusFilter: (s: StatusFilter) => void
-  selectedRecipeId: string | null
-  setSelectedRecipeId: (id: string) => void
-}) {
-  return (
-    <div className="flex flex-col border border-border-strong bg-bg-surface">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-strong px-4 py-4">
-        <div>
-          <p className="text-[18px] font-bold text-text-primary">{title}</p>
-          <p className="tiny-copy mt-1">{subtitle}</p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          <label className="inline-flex items-center gap-2">
-            <Filter size={14} className="text-text-secondary" />
-            <select
-              value={statusFilter}
-              onChange={(event) =>
-                setStatusFilter(event.target.value as StatusFilter)
-              }
-              className="select-input w-[160px]"
-            >
-              <option value="all">All statuses</option>
-              <option value="open">Open</option>
-              <option value="claimed">Claimed</option>
-              <option value="cooked">Cooked</option>
-              <option value="blocked">Blocked</option>
-              <option value="digested">Digested</option>
-            </select>
-          </label>
-        </div>
-      </div>
-
-      <RecipeRows
-        recipes={recipes}
         selectedRecipeId={selectedRecipeId}
         setSelectedRecipeId={setSelectedRecipeId}
       />

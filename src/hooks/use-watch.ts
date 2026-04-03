@@ -3,7 +3,6 @@
 import { useEffect, useEffectEvent, useRef } from 'react'
 import { openWatchStream } from '@/lib/watch-client'
 import type { WatchEvent } from '@/types/watch'
-import type { StreamEventPayload } from '@/types'
 
 /**
  * Watch hook that connects to krewhub's watch stream via the BFF proxy.
@@ -31,36 +30,4 @@ export function useWatch(
       handleEvent(event)
     }, lastSeqRef.current)
   }, [recipeId])
-}
-
-/**
- * Drop-in replacement for useRecipeStream that uses the watch stream
- * internally but exposes the same StreamEventPayload callback.
- *
- * This allows gradual migration: components switch import from
- * use-sse to use-watch without changing their callback signature.
- */
-export function useWatchCompat(
-  recipeId: string | null,
-  onEvent: (payload: StreamEventPayload) => void
-) {
-  const handleEvent = useEffectEvent(onEvent)
-
-  useWatch(recipeId, (watchEvent) => {
-    handleEvent({
-      event: _toLegacyEventName(watchEvent),
-      data: watchEvent.object as Record<string, unknown> | null,
-    })
-  })
-}
-
-function _toLegacyEventName(event: WatchEvent): string {
-  const map: Record<string, Record<string, string>> = {
-    bundle: { ADDED: 'bundle.created', MODIFIED: 'bundle.decision' },
-    task: { ADDED: 'task.updated', MODIFIED: 'task.updated' },
-    digest: { ADDED: 'bundle.digest_submitted', MODIFIED: 'bundle.decision' },
-    agent: { MODIFIED: 'agent.presence' },
-  }
-
-  return map[event.resourceType]?.[event.type] ?? `${event.resourceType}.${event.type.toLowerCase()}`
 }

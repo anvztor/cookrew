@@ -1,5 +1,5 @@
-import { CookbookScreen } from '@/components/cookbook-screen'
+import { HomeScreen } from '@/components/home-screen'
 
 export default function Page() {
-  return <CookbookScreen />
+  return <HomeScreen />
 }

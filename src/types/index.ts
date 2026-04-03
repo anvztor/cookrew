@@ -212,6 +212,13 @@ export interface HistoryData {
   readonly records: readonly HistoryRecord[]
 }
 
+export interface CookbookDetailData {
+  readonly cookbook: Cookbook
+  readonly recipes: readonly RecipeSummary[]
+  readonly agents: readonly AgentPresence[]
+  readonly members: readonly RecipeMember[]
+}
+
 export interface CreateRecipeInput {
   readonly name: string
   readonly repoUrl: string
@@ -229,11 +236,6 @@ export interface DecisionInput {
   readonly decision: Exclude<DigestDecision, 'pending'>
   readonly decidedBy: string
   readonly note?: string
-}
-
-export interface StreamEventPayload {
-  readonly event: string
-  readonly data: Record<string, unknown> | null
 }
 
 
