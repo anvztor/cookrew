@@ -137,6 +137,8 @@ export function eventTone(type: EventType): string {
       return 'emerald'
     case 'digest_rejected':
       return 'rose'
+    default:
+      return 'slate'
   }
 }
 
