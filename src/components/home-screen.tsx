@@ -233,7 +233,7 @@ function RealProjectGrid({
               <span className="text-[12px] text-[#5C574D]">@{group.cookbook.ownerId}</span>
               <span className="flex items-center gap-1 text-[12px] font-semibold text-[#D97706]">
                 <Coins size={14} className="text-[#D97706]" />
-                {group.agents.filter((a) => a.status !== 'offline').length} agents
+                {group.agents.length} agent{group.agents.length === 1 ? '' : 's'}
               </span>
             </div>
             <div className="flex w-full items-center justify-center gap-2 rounded-xl border border-border-strong bg-accent-primary px-4 py-2.5 text-[12px] font-medium text-[#5C4A1F] shadow-[4px_4px_0_#282623]">

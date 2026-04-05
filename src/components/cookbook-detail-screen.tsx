@@ -171,6 +171,7 @@ function Sidebar({
   agents: readonly AgentPresence[]
 }) {
   const onlineAgents = agents.filter((a) => a.status !== 'offline')
+  const offlineAgents = agents.filter((a) => a.status === 'offline')
 
   // Dedupe members for display
   const seenActors = new Set<string>()
@@ -210,28 +211,35 @@ function Sidebar({
         ) : null}
       </div>
 
-      {/* Online Agents */}
+      {/* Agents */}
       <div className="flex flex-col gap-3 border border-border-strong bg-bg-surface p-4">
         <div className="flex items-center justify-between">
-          <p className="text-[14px] font-bold text-text-primary">Online Agents</p>
-          {onlineAgents.length > 0 ? (
-            <span className="inline-flex items-center rounded-md bg-accent-primary px-2 py-[2px] text-[12px] font-medium text-[#5C4A1F] ring-1 ring-inset ring-border-strong">
-              {onlineAgents.length} active
-            </span>
-          ) : null}
+          <p className="text-[14px] font-bold text-text-primary">Agents</p>
+          <span className="inline-flex items-center rounded-md bg-accent-primary px-2 py-[2px] text-[12px] font-medium text-[#5C4A1F] ring-1 ring-inset ring-border-strong">
+            {onlineAgents.length > 0 ? `${onlineAgents.length} active` : `${agents.length} registered`}
+          </span>
         </div>
-        {onlineAgents.length > 0 ? (
-          onlineAgents.map((agent) => (
-            <div key={agent.agentId} className="flex items-center gap-2.5">
-              <span className="h-2 w-2 flex-shrink-0 rounded-full bg-[#10B981]" />
-              <span className="font-mono text-[12px] font-medium text-text-primary">
-                {agent.displayName}
-              </span>
-            </div>
-          ))
-        ) : (
-          <p className="text-[13px] text-text-secondary">No agents online</p>
-        )}
+        {onlineAgents.map((agent) => (
+          <div key={agent.agentId} className="flex items-center gap-2.5">
+            <span className="h-2 w-2 flex-shrink-0 rounded-full bg-[#10B981]" />
+            <span className="font-mono text-[12px] font-medium text-text-primary">
+              {agent.displayName}
+            </span>
+            <span className="text-[11px] text-text-secondary">executor</span>
+          </div>
+        ))}
+        {offlineAgents.map((agent) => (
+          <div key={agent.agentId} className="flex items-center gap-2.5">
+            <span className="h-2 w-2 flex-shrink-0 rounded-full bg-[#4D4D4D] ring-1 ring-inset ring-[#A8A29E]" />
+            <span className="font-mono text-[12px] font-medium text-[#4D4D4D]">
+              {agent.displayName}
+            </span>
+            <span className="text-[11px] text-[#A8A29E]">offline</span>
+          </div>
+        ))}
+        {agents.length === 0 ? (
+          <p className="text-[13px] text-text-secondary">No agents registered</p>
+        ) : null}
       </div>
     </aside>
   )
