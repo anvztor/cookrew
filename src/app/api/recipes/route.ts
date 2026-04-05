@@ -27,11 +27,12 @@ export async function POST(request: Request) {
       repoUrl?: string
       defaultBranch?: string
       createdBy?: string
+      cookbookId?: string
     }
 
-    if (!body.name?.trim() || !body.repoUrl?.trim() || !body.createdBy?.trim()) {
+    if (!body.name?.trim() || !body.repoUrl?.trim() || !body.createdBy?.trim() || !body.cookbookId?.trim()) {
       return NextResponse.json(
-        { error: 'Name, repository URL, and creator are required.' },
+        { error: 'Name, repository URL, creator, and cookbook ID are required.' },
         { status: 400 }
       )
     }
@@ -41,6 +42,7 @@ export async function POST(request: Request) {
       repoUrl: body.repoUrl.trim(),
       defaultBranch: body.defaultBranch?.trim() || 'main',
       createdBy: body.createdBy.trim(),
+      cookbookId: body.cookbookId.trim(),
     }, proxySettings)
 
     return NextResponse.json(recipe, { status: 201 })

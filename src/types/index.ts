@@ -224,6 +224,7 @@ export interface CreateRecipeInput {
   readonly repoUrl: string
   readonly defaultBranch: string
   readonly createdBy: string
+  readonly cookbookId: string
 }
 
 export interface CreateBundleInput {

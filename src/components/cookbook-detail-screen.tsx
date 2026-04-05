@@ -152,6 +152,7 @@ export function CookbookDetailScreen({ cookbookId }: { cookbookId: string }) {
 
       <CreateRecipeDialog
         open={isCreateOpen}
+        cookbookId={cookbookId}
         onClose={() => setIsCreateOpen(false)}
         onCreated={handleCreated}
       />

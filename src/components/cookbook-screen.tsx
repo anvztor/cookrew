@@ -280,6 +280,7 @@ export function CookbookScreen() {
 
       <CreateRecipeDialog
         open={isCreateOpen}
+        cookbookId={selectedCookbook?.cookbook.id ?? ''}
         onClose={() => setIsCreateOpen(false)}
         onCreated={handleCreated}
       />

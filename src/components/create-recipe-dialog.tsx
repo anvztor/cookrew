@@ -7,12 +7,14 @@ import type { Recipe } from '@/types'
 
 interface CreateRecipeDialogProps {
   readonly open: boolean
+  readonly cookbookId: string
   readonly onClose: () => void
   readonly onCreated: (recipe: Recipe) => void
 }
 
 export function CreateRecipeDialog({
   open,
+  cookbookId,
   onClose,
   onCreated,
 }: CreateRecipeDialogProps) {
@@ -42,6 +44,7 @@ export function CreateRecipeDialog({
         repoUrl: nextRepoUrl,
         defaultBranch: nextDefaultBranch || 'main',
         createdBy: nextCreatedBy,
+        cookbookId,
       })
 
       setName('')

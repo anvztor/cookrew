@@ -673,6 +673,7 @@ export async function createRecipe(
         repo_url: input.repoUrl,
         default_branch: input.defaultBranch,
         created_by: input.createdBy,
+        cookbook_id: input.cookbookId,
       }),
     },
     proxySettings

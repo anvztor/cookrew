@@ -1,12 +1,10 @@
 import { AtSign, Filter, Send } from 'lucide-react'
-import { formatRelativeTime } from '@/lib/format'
-import { getEventPresentation } from './helpers'
+import { EventCard } from './event-card'
 import {
   buttonClassName,
   EmptyWorkspaceState,
   joinClasses,
   WorkspaceBadge,
-  WorkspaceEventBadge,
 } from './shared'
 import type { WorkspaceCenterPaneProps } from './types'
 
@@ -49,42 +47,9 @@ export function WorkspaceCenterPane({
         {selectedBundle ? (
           events.length > 0 ? (
             <div className="flex flex-col gap-3">
-              {events.map((event) => {
-                const presentation = getEventPresentation(event)
-
-                return (
-                  <article
-                    key={event.id}
-                    className="flex flex-col gap-2 border border-[#2D2A20] bg-[#FFFEF5] px-[14px] py-[14px]"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <WorkspaceEventBadge
-                          icon={presentation.icon}
-                          label={presentation.label}
-                          tone={presentation.tone}
-                        />
-                        <span className="text-[13px] font-semibold text-[#2D2A20]">
-                          {event.actorId}
-                        </span>
-                      </div>
-
-                      <span className="text-[11px] text-[#57534E]">
-                        {formatRelativeTime(event.createdAt)}
-                      </span>
-                    </div>
-
-                    <p
-                      className={joinClasses(
-                        'text-[13px] leading-[1.45]',
-                        presentation.bodyClassName
-                      )}
-                    >
-                      {event.body}
-                    </p>
-                  </article>
-                )
-              })}
+              {events.map((event) => (
+                <EventCard key={event.id} event={event} />
+              ))}
             </div>
           ) : (
             <EmptyWorkspaceState>
