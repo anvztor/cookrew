@@ -936,17 +936,17 @@ export async function createBundle(
   if (userSeeds.length > 0) {
     tasksPayload = userSeeds.map((title) => ({ title }))
   } else if (hasKrewHubProxy(proxySettings)) {
-    // A2A: find orchestrator agent → pydantic-graph workflow → tasks with deps
-    const planned = await planViaAgent(recipeId, input.prompt, proxySettings)
-    // Generate unique task IDs (global uniqueness required by krewhub)
-    const prefix = `t_${crypto.randomUUID().slice(0, 8)}`
-    const idMap = new Map(planned.map((_, i) => [`task_${i}`, `${prefix}_${i}`]))
-    tasksPayload = planned.map((task, i) => ({
-      id: `${prefix}_${i}`,
-      title: task.title,
-      description: task.description,
-      depends_on_task_ids: task.dependsOn.map((dep) => idMap.get(dep) ?? dep),
-    }))
+    // Delegate ALL planning to the orchestrator agent.
+    // Create a single "orchestrate" task — krewhub dispatches it to the
+    // orchestrator, which generates a pydantic-graph workflow, creates
+    // sub-tasks, and executes them via A2A agents.
+    const excerpt = input.prompt.replace(/\s+/g, ' ').trim().slice(0, 60)
+    tasksPayload = [
+      {
+        title: `Orchestrate: ${excerpt}`,
+        description: input.prompt,
+      },
+    ]
   } else {
     // Demo mode fallback: local heuristic planner
     const planned = planTasksFromPrompt(input.prompt)
@@ -984,118 +984,6 @@ export async function createBundle(
   )
 
   return { bundleId: response.bundle.id }
-}
-
-/**
- * Discover an online agent with planning capability via krewhub,
- * then send it an A2A message to decompose the prompt into tasks.
- *
- * This is the k8s scheduler pattern: the planner is an agent that
- * advertises its capability via AgentCard. We discover it through
- * krewhub (the API server), then talk to it directly via A2A.
- *
- * Falls back to local heuristic planner if no planner agent is online.
- */
-async function planViaAgent(
-  recipeId: string,
-  prompt: string,
-  proxySettings: ProxySettings
-): Promise<Array<{ title: string; description: string; dependsOn: string[] }>> {
-  try {
-    // Step 1: Discover agents from krewhub
-    const recipeData = await requestKrewHub<{
-      agents: Array<{
-        agent_id: string
-        status: string
-        capabilities: string[]
-        endpoint_url: string | null
-      }>
-    }>(`/recipes/${recipeId}`, { method: 'GET' }, proxySettings)
-
-    // Step 2: Find an agent tagged with orchestrate/plan capability
-    const planCaps = new Set(['plan', 'orchestrate'])
-    const planner = recipeData.agents?.find(
-      (a) =>
-        a.status !== 'offline' &&
-        a.endpoint_url &&
-        a.capabilities.some((c) => planCaps.has(c))
-    )
-
-    if (!planner?.endpoint_url) {
-      return _localFallback(prompt)
-    }
-
-    // Step 3: Send A2A message/send — the orchestrator runs
-    // pydantic-graph to select a workflow template and extract tasks
-    const a2aResp = await fetch(planner.endpoint_url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'message/send',
-        params: {
-          message: {
-            role: 'user',
-            messageId: crypto.randomUUID(),
-            parts: [{ kind: 'text', text: prompt }],
-          },
-        },
-      }),
-      cache: 'no-store',
-    })
-
-    if (!a2aResp.ok) {
-      return _localFallback(prompt)
-    }
-
-    // Step 4: Parse the orchestrator's response
-    // The artifact contains: { workflow, tasks: [{id, title, description, dependsOn}], mermaid }
-    const a2aResult = (await a2aResp.json()) as {
-      result?: {
-        artifacts?: Array<{
-          parts?: Array<{ kind: string; text?: string }>
-        }>
-      }
-    }
-
-    const artifactText = a2aResult.result?.artifacts?.[0]?.parts?.find(
-      (p) => p.kind === 'text'
-    )?.text
-
-    if (artifactText) {
-      const parsed = JSON.parse(artifactText) as {
-        tasks?: Array<{
-          id: string
-          title: string
-          description?: string
-          dependsOn?: string[]
-        }>
-        mermaid?: string
-      }
-
-      if (parsed.tasks && parsed.tasks.length > 0) {
-        return parsed.tasks.map((t) => ({
-          title: t.title,
-          description: t.description ?? '',
-          dependsOn: t.dependsOn ?? [],
-        }))
-      }
-    }
-  } catch {
-    // Discovery or A2A call failed — fall through
-  }
-
-  return _localFallback(prompt)
-}
-
-function _localFallback(
-  prompt: string
-): Array<{ title: string; description: string; dependsOn: string[] }> {
-  return planTasksFromPrompt(prompt).map((t) => ({
-    ...t,
-    dependsOn: t.dependsOn.map((i) => `task_${i}`),
-  }))
 }
 
 export async function getDigestReviewData(
