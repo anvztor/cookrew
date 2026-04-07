@@ -8,9 +8,13 @@ import {
   FileText,
   GitBranch,
   LoaderCircle,
+  PlayCircle,
   Scale,
   Sparkles,
+  StopCircle,
+  Terminal,
   UserRound,
+  Wrench,
 } from 'lucide-react'
 import { formatRelativeTime } from '@/lib/format'
 import type { AgentPresence, BundleWithDetails, Event, Task, TaskStatus } from '@/types'
@@ -179,6 +183,41 @@ export function getTaskPresentation(status: TaskStatus): TaskPresentation {
 }
 
 export function getEventPresentation(event: Event): EventPresentation {
+  if (event.actorType === 'hook') {
+    if (event.type === 'session_start') {
+      return {
+        label: 'hook:session-start',
+        tone: 'slate',
+        icon: PlayCircle,
+        bodyClassName: 'text-[#57534E]',
+      }
+    }
+    if (event.type === 'session_end') {
+      return {
+        label: 'hook:session-end',
+        tone: 'slate',
+        icon: StopCircle,
+        bodyClassName: 'text-[#57534E]',
+      }
+    }
+    if (event.type === 'tool_use') {
+      // PostToolUse cards add a trailing ✓ in the body — surface that.
+      const isPost = event.body.trimEnd().endsWith('✓')
+      return {
+        label: isPost ? 'hook:tool-result' : 'hook:tool-use',
+        tone: isPost ? 'emerald' : 'blue',
+        icon: isPost ? Terminal : Wrench,
+        bodyClassName: 'font-mono text-[12px] text-[#57534E]',
+      }
+    }
+    return {
+      label: `hook:${event.type.replaceAll('_', '-')}`,
+      tone: 'slate',
+      icon: Wrench,
+      bodyClassName: 'font-mono text-[12px] text-[#57534E]',
+    }
+  }
+
   if (event.type === 'prompt' && event.actorType === 'human') {
     return {
       label: 'human:prompt',

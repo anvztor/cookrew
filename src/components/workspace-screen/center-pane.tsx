@@ -1,4 +1,7 @@
-import { AtSign, Filter, Send } from 'lucide-react'
+'use client'
+
+import { AtSign, ArrowDown, Filter, Send } from 'lucide-react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { EventCard } from './event-card'
 import {
   buttonClassName,
@@ -7,6 +10,9 @@ import {
   WorkspaceBadge,
 } from './shared'
 import type { WorkspaceCenterPaneProps } from './types'
+
+/** Distance (px) from the bottom at which we consider the user "pinned". */
+const BOTTOM_STICKY_THRESHOLD = 120
 
 export function WorkspaceCenterPane({
   events,
@@ -26,6 +32,66 @@ export function WorkspaceCenterPane({
   taskSeedText,
   testId,
 }: WorkspaceCenterPaneProps) {
+  const scrollRef = useRef<HTMLDivElement | null>(null)
+  const stickyBottomRef = useRef(true)
+  const prevCountRef = useRef(events.length)
+  const [newCount, setNewCount] = useState(0)
+
+  // Track whether the user is pinned near the bottom of the feed.
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const onScroll = () => {
+      const distance = el.scrollHeight - el.scrollTop - el.clientHeight
+      const pinned = distance <= BOTTOM_STICKY_THRESHOLD
+      stickyBottomRef.current = pinned
+      if (pinned && newCount !== 0) setNewCount(0)
+    }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [newCount])
+
+  // After events update: if we were pinned, auto-scroll. Otherwise
+  // accumulate a "N new" counter the user can click to jump down.
+  useLayoutEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const prev = prevCountRef.current
+    prevCountRef.current = events.length
+    if (events.length > prev) {
+      if (stickyBottomRef.current) {
+        el.scrollTop = el.scrollHeight
+      } else {
+        setNewCount((n) => n + (events.length - prev))
+      }
+    } else if (events.length < prev) {
+      // Bundle switch: reset counter and pin to bottom.
+      setNewCount(0)
+      stickyBottomRef.current = true
+      el.scrollTop = el.scrollHeight
+    }
+  }, [events.length])
+
+  // When the selected bundle changes entirely, scroll to the newest
+  // event so the user sees the most recent activity.
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    stickyBottomRef.current = true
+    setNewCount(0)
+    requestAnimationFrame(() => {
+      el.scrollTop = el.scrollHeight
+    })
+  }, [selectedBundle?.bundle.id])
+
+  const scrollToBottom = () => {
+    const el = scrollRef.current
+    if (!el) return
+    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+    stickyBottomRef.current = true
+    setNewCount(0)
+  }
+
   return (
     <section
       data-testid={testId}
@@ -43,26 +109,43 @@ export function WorkspaceCenterPane({
         <WorkspaceBadge label={`${events.length} events`} tone="default" />
       </div>
 
-      <div className="flex-1 overflow-y-auto px-5 py-4">
-        {selectedBundle ? (
-          events.length > 0 ? (
-            <div className="flex flex-col gap-3">
-              {events.map((event) => (
-                <EventCard key={event.id} event={event} />
-              ))}
-            </div>
+      <div className="relative flex-1 min-h-0">
+        <div
+          ref={scrollRef}
+          className="h-full overflow-y-auto px-5 py-4"
+        >
+          {selectedBundle ? (
+            events.length > 0 ? (
+              <div className="flex flex-col gap-3">
+                {events.map((event) => (
+                  <EventCard key={event.id} event={event} />
+                ))}
+              </div>
+            ) : (
+              <EmptyWorkspaceState>
+                {hasQuery
+                  ? 'No feed events match that search yet.'
+                  : 'The active bundle does not have any events yet.'}
+              </EmptyWorkspaceState>
+            )
           ) : (
             <EmptyWorkspaceState>
-              {hasQuery
-                ? 'No feed events match that search yet.'
-                : 'The active bundle does not have any events yet.'}
+              Create a bundle to populate the workspace feed and right sidebar.
             </EmptyWorkspaceState>
-          )
-        ) : (
-          <EmptyWorkspaceState>
-            Create a bundle to populate the workspace feed and right sidebar.
-          </EmptyWorkspaceState>
-        )}
+          )}
+        </div>
+
+        {newCount > 0 ? (
+          <button
+            type="button"
+            onClick={scrollToBottom}
+            className="absolute bottom-4 left-1/2 inline-flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-[#2D2A20] bg-[#2D2A20] px-4 py-1.5 text-[12px] font-semibold text-[#FAF8F4] shadow-lg transition-transform hover:-translate-y-0.5"
+            aria-label={`Jump to ${newCount} new event${newCount === 1 ? '' : 's'}`}
+          >
+            <ArrowDown size={14} />
+            {newCount} new event{newCount === 1 ? '' : 's'}
+          </button>
+        ) : null}
       </div>
 
       <div className="border-t border-[#2D2A20] bg-[#FFFEF5] px-5 py-4">

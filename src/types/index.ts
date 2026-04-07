@@ -34,7 +34,7 @@ export type EventType =
 
 export type AgentStatus = 'online' | 'offline' | 'busy'
 
-export type ActorType = 'human' | 'agent' | 'system'
+export type ActorType = 'human' | 'agent' | 'system' | 'hook'
 
 export type DigestDecision = 'pending' | 'approved' | 'rejected'
 
@@ -127,6 +127,7 @@ export interface Event {
   readonly body: string
   readonly facts: readonly FactRef[]
   readonly codeRefs: readonly CodeRef[]
+  readonly payload: Readonly<Record<string, unknown>>
   readonly createdAt: string
   readonly expiresAt: string | null
 }

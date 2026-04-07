@@ -223,7 +223,7 @@ export function WorkspaceScreen({ recipeId }: WorkspaceScreenProps) {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen flex-col bg-[#FAF8F4] text-[#2D2A20]">
+      <div className="flex h-screen min-h-0 flex-col overflow-hidden bg-[#FAF8F4] text-[#2D2A20]">
         <WorkspaceHeader
           historyHref={historyHref}
           onSearchChange={setWorkspaceSearch}
@@ -238,7 +238,7 @@ export function WorkspaceScreen({ recipeId }: WorkspaceScreenProps) {
 
   if (!data) {
     return (
-      <div className="flex min-h-screen flex-col bg-[#FAF8F4] text-[#2D2A20]">
+      <div className="flex h-screen min-h-0 flex-col overflow-hidden bg-[#FAF8F4] text-[#2D2A20]">
         <WorkspaceHeader
           historyHref={historyHref}
           onSearchChange={setWorkspaceSearch}
@@ -254,7 +254,7 @@ export function WorkspaceScreen({ recipeId }: WorkspaceScreenProps) {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#FAF8F4] text-[#2D2A20]">
+    <div className="flex h-screen min-h-0 flex-col overflow-hidden bg-[#FAF8F4] text-[#2D2A20]">
       <WorkspaceHeader
         historyHref={historyHref}
         onSearchChange={setWorkspaceSearch}

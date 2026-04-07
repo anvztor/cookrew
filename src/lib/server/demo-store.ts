@@ -410,6 +410,7 @@ function event(
     body,
     facts,
     codeRefs,
+    payload: {},
     createdAt: isoMinutesAgo(createdMinutesAgo),
     expiresAt: null,
   }
@@ -578,6 +579,7 @@ export function createBundleInDemo(input: {
     facts: [],
     codeRefs: [],
     createdAt: now,
+    payload: {},
     expiresAt: null,
   }
 
@@ -593,6 +595,7 @@ export function createBundleInDemo(input: {
     facts: [],
     codeRefs: [],
     createdAt: now,
+    payload: {},
     expiresAt: null,
   }
 
@@ -659,6 +662,7 @@ export function decideDigestInDemo(input: {
     facts: [],
     codeRefs: [],
     createdAt: decidedAt,
+    payload: {},
     expiresAt: null,
   }
 
@@ -725,6 +729,7 @@ export function rerunBundleInDemo(input: {
     facts: [],
     codeRefs: [],
     createdAt: now,
+    payload: {},
     expiresAt: null,
   }
 
@@ -793,6 +798,7 @@ export function submitDigestInDemo(input: {
     facts: [],
     codeRefs: [],
     createdAt: submittedAt,
+    payload: {},
     expiresAt: null,
   }
 

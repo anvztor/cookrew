@@ -15,9 +15,21 @@ function isAgentOutput(event: Event): boolean {
   return event.type === 'milestone' && event.actorType === 'agent'
 }
 
+function isHookEvent(event: Event): boolean {
+  return event.actorType === 'hook'
+}
+
+function hookSourceLabel(event: Event): string | null {
+  if (!isHookEvent(event)) return null
+  const source = event.payload?._source
+  return typeof source === 'string' ? source : null
+}
+
 export function EventCard({ event }: { readonly event: Event }) {
   const presentation = getEventPresentation(event)
   const agentOutput = isAgentOutput(event)
+  const hook = isHookEvent(event)
+  const source = hookSourceLabel(event)
   const isLong = !agentOutput && event.body.length > COLLAPSE_THRESHOLD
   const [expanded, setExpanded] = useState(!isLong)
 
@@ -33,6 +45,11 @@ export function EventCard({ event }: { readonly event: Event }) {
           <span className="text-[13px] font-semibold text-[#2D2A20]">
             {event.actorId}
           </span>
+          {source ? (
+            <span className="rounded bg-[#FEF3C7] px-1.5 py-0.5 font-mono text-[10px] text-[#92400E]">
+              {source}
+            </span>
+          ) : null}
         </div>
 
         <div className="flex items-center gap-3">
@@ -65,6 +82,50 @@ export function EventCard({ event }: { readonly event: Event }) {
           {event.body}
         </p>
       )}
+
+      {hook && expanded ? <HookPayloadDetails payload={event.payload} /> : null}
     </article>
+  )
+}
+
+function HookPayloadDetails({
+  payload,
+}: {
+  readonly payload: Readonly<Record<string, unknown>>
+}) {
+  const toolName = typeof payload.tool_name === 'string' ? payload.tool_name : ''
+  const cwd = typeof payload.cwd === 'string' ? payload.cwd : ''
+  const sessionId =
+    typeof payload.session_id === 'string' ? payload.session_id : ''
+  const toolInput =
+    payload.tool_input && typeof payload.tool_input === 'object'
+      ? (payload.tool_input as Record<string, unknown>)
+      : null
+
+  const rows: Array<{ label: string; value: string }> = []
+  if (toolName) rows.push({ label: 'tool', value: toolName })
+  if (toolInput) {
+    for (const key of ['file_path', 'path', 'command', 'pattern', 'query', 'url']) {
+      const v = toolInput[key]
+      if (typeof v === 'string' && v) {
+        rows.push({ label: key, value: v })
+        break
+      }
+    }
+  }
+  if (cwd) rows.push({ label: 'cwd', value: cwd })
+  if (sessionId) rows.push({ label: 'session', value: sessionId.slice(0, 16) })
+
+  if (rows.length === 0) return null
+
+  return (
+    <dl className="mt-1 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-0.5 font-mono text-[11px] text-[#57534E]">
+      {rows.map((row) => (
+        <div key={row.label} className="contents">
+          <dt className="text-[#A8A29E]">{row.label}</dt>
+          <dd className="truncate text-[#2D2A20]">{row.value}</dd>
+        </div>
+      ))}
+    </dl>
   )
 }

@@ -135,6 +135,7 @@ interface RawEvent {
   body: string
   facts: RawFactRef[]
   code_refs: RawCodeRef[]
+  payload?: Record<string, unknown> | null
   created_at: string
   expires_at: string | null
 }
@@ -376,6 +377,7 @@ function normalizeEvent(event: RawEvent) {
     body: event.body,
     facts: event.facts.map(normalizeFact),
     codeRefs: event.code_refs.map(normalizeCodeRef),
+    payload: (event.payload ?? {}) as Record<string, unknown>,
     createdAt: event.created_at,
     expiresAt: event.expires_at,
   } as const
