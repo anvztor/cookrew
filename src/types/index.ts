@@ -56,6 +56,7 @@ export type EventPayload =
       readonly text: string
       readonly blockIndex: number
       readonly model?: string
+      readonly stream?: 'stdout' | 'stderr'
     }
   | {
       readonly kind: 'thinking'

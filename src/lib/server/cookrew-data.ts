@@ -455,13 +455,18 @@ function normalizeEventPayload(
         blockedReason: str('blocked_reason'),
       }
     }
-    case 'agent_reply':
+    case 'agent_reply': {
+      const streamRaw = str('stream')
+      const stream =
+        streamRaw === 'stdout' || streamRaw === 'stderr' ? streamRaw : undefined
       return {
         kind: 'agent_reply',
         text: str('text') ?? '',
         blockIndex: num('block_index') ?? 0,
         model: str('model'),
+        stream,
       }
+    }
     case 'thinking':
       return {
         kind: 'thinking',

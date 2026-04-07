@@ -103,14 +103,20 @@ function StructuredEvent({ event }: { readonly event: Event }) {
           />
         </div>
       )
-    case 'agent_reply':
+    case 'agent_reply': {
+      const isStderr = payload.stream === 'stderr'
+      const containerClass = isStderr
+        ? 'rounded-md border border-[#F59E0B]/40 bg-[#FFFBEB] px-3 py-2 text-[12px] leading-[1.45] text-[#92400E] whitespace-pre-wrap font-mono'
+        : 'rounded-md border border-[#E7E5E4] bg-white px-3 py-2 text-[13px] leading-[1.45] text-[#2D2A20] whitespace-pre-wrap'
       return (
         <div className="px-[14px] py-0.5">
-          <div className="rounded-md border border-[#E7E5E4] bg-white px-3 py-2 text-[13px] leading-[1.45] text-[#2D2A20] whitespace-pre-wrap">
+          <div className={containerClass}>
+            {isStderr ? <span className="mr-1 text-[10px] uppercase tracking-wide opacity-70">stderr</span> : null}
             {payload.text}
           </div>
         </div>
       )
+    }
     default:
       return <LegacyEventCard event={event} />
   }

@@ -1,11 +1,14 @@
+import { useMemo } from 'react'
 import { AtSign, Filter, Send } from 'lucide-react'
 import { EventCard } from './event-card'
+import { groupEvents } from './group-events'
 import {
   buttonClassName,
   EmptyWorkspaceState,
   joinClasses,
   WorkspaceBadge,
 } from './shared'
+import { TerminalBlock } from './terminal-block'
 import type { WorkspaceCenterPaneProps } from './types'
 
 export function WorkspaceCenterPane({
@@ -26,6 +29,12 @@ export function WorkspaceCenterPane({
   taskSeedText,
   testId,
 }: WorkspaceCenterPaneProps) {
+  // Coalesce runs of stream events (stdout/stderr from CLI agents) into
+  // dense terminal blocks so a chatty codex run (4k+ lines) stays usable.
+  // Structural events (prompt, plan, tool_use, thinking, session markers,
+  // milestone) still render as their own cards.
+  const feedGroups = useMemo(() => groupEvents(events), [events])
+
   return (
     <section
       data-testid={testId}
@@ -47,9 +56,21 @@ export function WorkspaceCenterPane({
         {selectedBundle ? (
           events.length > 0 ? (
             <div className="flex flex-col gap-3">
-              {events.map((event) => (
-                <EventCard key={event.id} event={event} />
-              ))}
+              {feedGroups.map((group) =>
+                group.kind === 'terminal' ? (
+                  <TerminalBlock
+                    key={group.id}
+                    actorId={group.actorId}
+                    events={group.events}
+                    stdoutLines={group.stdoutLines}
+                    stderrLines={group.stderrLines}
+                    firstCreatedAt={group.firstCreatedAt}
+                    lastCreatedAt={group.lastCreatedAt}
+                  />
+                ) : (
+                  <EventCard key={group.event.id} event={group.event} />
+                )
+              )}
             </div>
           ) : (
             <EmptyWorkspaceState>
