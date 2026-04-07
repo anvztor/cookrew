@@ -408,6 +408,8 @@ function event(
     actorId,
     actorType,
     body,
+    payload: null,
+    sequence: 0,
     facts,
     codeRefs,
     createdAt: isoMinutesAgo(createdMinutesAgo),
@@ -577,6 +579,8 @@ export function createBundleInDemo(input: {
     body: input.prompt,
     facts: [],
     codeRefs: [],
+    payload: null,
+    sequence: 0,
     createdAt: now,
     expiresAt: null,
   }
@@ -592,6 +596,8 @@ export function createBundleInDemo(input: {
     body: `Created bundle with ${createdTasks.length} starter tasks.`,
     facts: [],
     codeRefs: [],
+    payload: null,
+    sequence: 0,
     createdAt: now,
     expiresAt: null,
   }
@@ -658,6 +664,8 @@ export function decideDigestInDemo(input: {
       : `Digest ${input.decision}.`,
     facts: [],
     codeRefs: [],
+    payload: null,
+    sequence: 0,
     createdAt: decidedAt,
     expiresAt: null,
   }
@@ -724,6 +732,8 @@ export function rerunBundleInDemo(input: {
     }. Tasks reopened for reassignment.`,
     facts: [],
     codeRefs: [],
+    payload: null,
+    sequence: 0,
     createdAt: now,
     expiresAt: null,
   }
@@ -792,6 +802,8 @@ export function submitDigestInDemo(input: {
     body: `Digest submitted: ${input.summary.slice(0, 100)}`,
     facts: [],
     codeRefs: [],
+    payload: null,
+    sequence: 0,
     createdAt: submittedAt,
     expiresAt: null,
   }

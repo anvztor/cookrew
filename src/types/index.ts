@@ -30,7 +30,59 @@ export type EventType =
   | 'session_start'
   | 'session_end'
   | 'tool_use'
+  | 'tool_result'
   | 'agent_reply'
+  | 'thinking'
+
+export interface TokenUsage {
+  readonly input_tokens?: number
+  readonly output_tokens?: number
+  readonly cache_creation_input_tokens?: number
+  readonly cache_read_input_tokens?: number
+}
+
+export type EventPayload =
+  | {
+      readonly kind: 'session_start'
+      readonly agentName: string
+      readonly model?: string
+      readonly cwd?: string
+      readonly sessionId?: string
+      readonly tools?: readonly string[]
+      readonly prompt?: string
+    }
+  | {
+      readonly kind: 'agent_reply'
+      readonly text: string
+      readonly blockIndex: number
+      readonly model?: string
+    }
+  | {
+      readonly kind: 'thinking'
+      readonly text: string
+    }
+  | {
+      readonly kind: 'tool_use'
+      readonly toolUseId: string
+      readonly toolName: string
+      readonly input: unknown
+    }
+  | {
+      readonly kind: 'tool_result'
+      readonly toolUseId: string
+      readonly output: string
+      readonly isError: boolean
+    }
+  | {
+      readonly kind: 'session_end'
+      readonly success: boolean
+      readonly durationMs?: number
+      readonly numTurns?: number
+      readonly tokens?: TokenUsage
+      readonly costUsd?: number
+      readonly resultText?: string
+      readonly blockedReason?: string
+    }
 
 export type AgentStatus = 'online' | 'offline' | 'busy'
 
@@ -125,6 +177,8 @@ export interface Event {
   readonly actorId: string
   readonly actorType: ActorType
   readonly body: string
+  readonly payload: EventPayload | null
+  readonly sequence: number
   readonly facts: readonly FactRef[]
   readonly codeRefs: readonly CodeRef[]
   readonly createdAt: string

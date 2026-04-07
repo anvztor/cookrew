@@ -27,6 +27,7 @@ import type {
   DecisionInput,
   Digest,
   DigestReviewData,
+  EventPayload,
   FactRef,
   HistoryData,
   HistoryRecord,
@@ -133,6 +134,8 @@ interface RawEvent {
   actor_id: string
   actor_type: BundleWithDetails['events'][number]['actorType']
   body: string
+  payload: Record<string, unknown> | null
+  sequence: number
   facts: RawFactRef[]
   code_refs: RawCodeRef[]
   created_at: string
@@ -374,11 +377,113 @@ function normalizeEvent(event: RawEvent) {
     actorId: event.actor_id,
     actorType: event.actor_type,
     body: event.body,
+    payload: normalizeEventPayload(event.type, event.payload),
+    sequence: event.sequence ?? 0,
     facts: event.facts.map(normalizeFact),
     codeRefs: event.code_refs.map(normalizeCodeRef),
     createdAt: event.created_at,
     expiresAt: event.expires_at,
   } as const
+}
+
+function normalizeEventPayload(
+  type: RawEvent['type'],
+  raw: Record<string, unknown> | null
+): EventPayload | null {
+  if (!raw || typeof raw !== 'object') {
+    return null
+  }
+
+  const str = (key: string): string | undefined => {
+    const v = raw[key]
+    return typeof v === 'string' ? v : undefined
+  }
+  const num = (key: string): number | undefined => {
+    const v = raw[key]
+    return typeof v === 'number' ? v : undefined
+  }
+  const bool = (key: string): boolean | undefined => {
+    const v = raw[key]
+    return typeof v === 'boolean' ? v : undefined
+  }
+
+  switch (type) {
+    case 'session_start':
+      return {
+        kind: 'session_start',
+        agentName: str('agent_name') ?? 'agent',
+        model: str('model'),
+        cwd: str('cwd'),
+        sessionId: str('session_id'),
+        tools: Array.isArray(raw.tools)
+          ? (raw.tools as unknown[]).filter((t): t is string => typeof t === 'string')
+          : undefined,
+        prompt: str('prompt'),
+      }
+    case 'session_end': {
+      const rawTokens = raw.tokens
+      const tokens =
+        rawTokens && typeof rawTokens === 'object'
+          ? (rawTokens as Record<string, unknown>)
+          : null
+      const numField = (obj: Record<string, unknown> | null, key: string) => {
+        if (!obj) return undefined
+        const v = obj[key]
+        return typeof v === 'number' ? v : undefined
+      }
+      return {
+        kind: 'session_end',
+        success: bool('success') ?? false,
+        durationMs: num('duration_ms'),
+        numTurns: num('num_turns'),
+        tokens: tokens
+          ? {
+              input_tokens: numField(tokens, 'input_tokens'),
+              output_tokens: numField(tokens, 'output_tokens'),
+              cache_creation_input_tokens: numField(
+                tokens,
+                'cache_creation_input_tokens'
+              ),
+              cache_read_input_tokens: numField(
+                tokens,
+                'cache_read_input_tokens'
+              ),
+            }
+          : undefined,
+        costUsd: num('cost_usd'),
+        resultText: str('result_text'),
+        blockedReason: str('blocked_reason'),
+      }
+    }
+    case 'agent_reply':
+      return {
+        kind: 'agent_reply',
+        text: str('text') ?? '',
+        blockIndex: num('block_index') ?? 0,
+        model: str('model'),
+      }
+    case 'thinking':
+      return {
+        kind: 'thinking',
+        text: str('text') ?? '',
+      }
+    case 'tool_use':
+      return {
+        kind: 'tool_use',
+        toolUseId: str('tool_use_id') ?? '',
+        toolName: str('tool_name') ?? '',
+        input: raw.input ?? null,
+      }
+    case 'tool_result':
+      return {
+        kind: 'tool_result',
+        toolUseId: str('tool_use_id') ?? '',
+        output: str('output') ?? '',
+        isError: bool('is_error') ?? false,
+      }
+    default:
+      return null
+  }
 }
 
 function normalizeDigest(digest: RawDigest): Digest {
