@@ -33,6 +33,31 @@ function hookSourceLabel(event: Event): string | null {
   return typeof source === 'string' ? source : null
 }
 
+/**
+ * Resolve the body to display for an event.
+ *
+ * Codex agent_reply hooks (and any other Notification-derived hook
+ * event from a non-tool source) historically land with the literal
+ * body "Notification" — the actual prose lives in
+ * `payload.last_assistant_message`. The bridge `_build_body` fix
+ * makes new events come through with the message inline, but old
+ * rows in the krewhub events table still have body="Notification".
+ *
+ * Falling back here means we render the right thing regardless of
+ * when the event was ingested.
+ */
+function displayBody(event: Event): string {
+  const body = event.body || ''
+  const trimmed = body.trim()
+  if (trimmed && trimmed !== 'Notification') return body
+  const payload = event.payload as Record<string, unknown> | null | undefined
+  const msg = payload?.last_assistant_message
+  if (typeof msg === 'string' && msg.trim()) return msg
+  const summary = payload?.summary
+  if (typeof summary === 'string' && summary.trim()) return summary
+  return body
+}
+
 export function EventCard({
   event,
   index = 0,
@@ -46,7 +71,8 @@ export function EventCard({
   const agentOutput = isAgentOutput(event)
   const hook = isHookEvent(event)
   const source = hookSourceLabel(event)
-  const isLong = !agentOutput && event.body.length > COLLAPSE_THRESHOLD
+  const body = displayBody(event)
+  const isLong = !agentOutput && body.length > COLLAPSE_THRESHOLD
   const [expanded, setExpanded] = useState(!isLong)
   const sourceClass = source ? SOURCE_TONE[source] ?? 'bg-[#E7E5E4] text-[#44403C]' : ''
 
@@ -100,7 +126,7 @@ export function EventCard({
       </div>
 
       {agentOutput ? (
-        <ShellOutput body={event.body} />
+        <ShellOutput body={body} />
       ) : (
         <p
           className={joinClasses(
@@ -109,7 +135,7 @@ export function EventCard({
             !expanded ? 'line-clamp-3' : ''
           )}
         >
-          {event.body}
+          {body}
         </p>
       )}
 
