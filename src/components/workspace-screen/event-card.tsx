@@ -2,11 +2,19 @@
 
 import { useState } from 'react'
 import { ChevronDown, ChevronUp } from 'lucide-react'
-import { formatRelativeTime } from '@/lib/format'
+import { formatRelativeTime, formatTimestamp } from '@/lib/format'
 import { getEventPresentation } from './helpers'
 import { joinClasses, WorkspaceEventBadge } from './shared'
 import { ShellOutput } from './shell-output'
 import type { Event } from '@/types'
+
+const SOURCE_TONE: Record<string, string> = {
+  codex: 'bg-[#FEF3C7] text-[#92400E]',
+  claude: 'bg-[#EDE9FE] text-[#5B21B6]',
+  cursor: 'bg-[#DBEAFE] text-[#1E40AF]',
+  gemini: 'bg-[#DCFCE7] text-[#166534]',
+  opencode: 'bg-[#FFE4E6] text-[#9F1239]',
+}
 
 /** Body length beyond which we show the expand/collapse toggle. */
 const COLLAPSE_THRESHOLD = 200
@@ -25,13 +33,22 @@ function hookSourceLabel(event: Event): string | null {
   return typeof source === 'string' ? source : null
 }
 
-export function EventCard({ event }: { readonly event: Event }) {
+export function EventCard({
+  event,
+  index = 0,
+  turn = 0,
+}: {
+  readonly event: Event
+  readonly index?: number
+  readonly turn?: number
+}) {
   const presentation = getEventPresentation(event)
   const agentOutput = isAgentOutput(event)
   const hook = isHookEvent(event)
   const source = hookSourceLabel(event)
   const isLong = !agentOutput && event.body.length > COLLAPSE_THRESHOLD
   const [expanded, setExpanded] = useState(!isLong)
+  const sourceClass = source ? SOURCE_TONE[source] ?? 'bg-[#E7E5E4] text-[#44403C]' : ''
 
   return (
     <article className="flex flex-col gap-2 border border-[#2D2A20] bg-[#FFFEF5] px-[14px] py-[14px]">
@@ -46,8 +63,18 @@ export function EventCard({ event }: { readonly event: Event }) {
             {event.actorId}
           </span>
           {source ? (
-            <span className="rounded bg-[#FEF3C7] px-1.5 py-0.5 font-mono text-[10px] text-[#92400E]">
+            <span
+              className={joinClasses('rounded px-1.5 py-0.5 font-mono text-[10px]', sourceClass)}
+            >
               {source}
+            </span>
+          ) : null}
+          {index ? (
+            <span
+              className="font-mono text-[10px] text-[#A8A29E]"
+              title={`event #${index} · turn ${turn}`}
+            >
+              #{index}
             </span>
           ) : null}
         </div>
@@ -63,7 +90,10 @@ export function EventCard({ event }: { readonly event: Event }) {
               {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
             </button>
           ) : null}
-          <span className="text-[11px] text-[#57534E]">
+          <span
+            className="text-[11px] text-[#57534E]"
+            title={formatTimestamp(event.createdAt)}
+          >
             {formatRelativeTime(event.createdAt)}
           </span>
         </div>

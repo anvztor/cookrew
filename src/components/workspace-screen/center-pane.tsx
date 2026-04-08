@@ -1,8 +1,14 @@
 'use client'
 
-import { AtSign, ArrowDown, Filter, Send } from 'lucide-react'
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { EventCard } from './event-card'
+import { AtSign, ArrowDown, Brain, MessageSquare, PlayCircle, Send, Terminal, Zap } from 'lucide-react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { EventGroupCard } from './event-group-card'
+import {
+  bucketOf,
+  groupEvents,
+  summarize,
+  type FeedBucket,
+} from './group-events'
 import {
   buttonClassName,
   EmptyWorkspaceState,
@@ -10,6 +16,30 @@ import {
   WorkspaceBadge,
 } from './shared'
 import type { WorkspaceCenterPaneProps } from './types'
+
+const ALL_BUCKETS: readonly FeedBucket[] = [
+  'tools',
+  'thinking',
+  'messages',
+  'sessions',
+  'other',
+] as const
+
+const BUCKET_LABELS: Record<FeedBucket, string> = {
+  tools: 'tools',
+  thinking: 'thinking',
+  messages: 'messages',
+  sessions: 'sessions',
+  other: 'other',
+}
+
+const BUCKET_ICONS: Record<FeedBucket, React.ElementType> = {
+  tools: Terminal,
+  thinking: Brain,
+  messages: MessageSquare,
+  sessions: PlayCircle,
+  other: Zap,
+}
 
 /** Distance (px) from the bottom at which we consider the user "pinned". */
 const BOTTOM_STICKY_THRESHOLD = 120
@@ -36,6 +66,31 @@ export function WorkspaceCenterPane({
   const stickyBottomRef = useRef(true)
   const prevCountRef = useRef(events.length)
   const [newCount, setNewCount] = useState(0)
+  const [enabledBuckets, setEnabledBuckets] = useState<Set<FeedBucket>>(
+    () => new Set<FeedBucket>(ALL_BUCKETS)
+  )
+
+  // Collapse raw events into richer groups (pair PreToolUse+PostToolUse,
+  // bundle consecutive reasoning, dedupe repeated session boundaries).
+  const grouped = useMemo(() => groupEvents(events), [events])
+  const summary = useMemo(() => summarize(grouped), [grouped])
+  const visibleGroups = useMemo(
+    () => grouped.filter((g) => enabledBuckets.has(bucketOf(g))),
+    [grouped, enabledBuckets]
+  )
+
+  const toggleBucket = (bucket: FeedBucket) => {
+    setEnabledBuckets((prev) => {
+      const next = new Set(prev)
+      if (next.has(bucket)) next.delete(bucket)
+      else next.add(bucket)
+      // Never allow all chips to be off — snap back to a useful default.
+      if (next.size === 0) {
+        for (const b of ALL_BUCKETS) next.add(b)
+      }
+      return next
+    })
+  }
 
   // Track whether the user is pinned near the bottom of the feed.
   useEffect(() => {
@@ -100,13 +155,40 @@ export function WorkspaceCenterPane({
         mobile ? 'border-b border-[#2D2A20]' : ''
       )}
     >
-      <div className="flex items-center gap-3 border-b border-[#2D2A20] bg-[#FAF8F4] px-5 py-3">
-        <p className="text-[15px] font-bold text-[#2D2A20]">Event Feed</p>
-        <div className="inline-flex items-center gap-1.5 rounded-full border border-[#2D2A20] bg-[#FFFBEB] px-[10px] py-1">
-          <Filter size={12} className="text-[#57534E]" />
-          <span className="text-[11px] font-medium text-[#57534E]">All types</span>
+      <div className="flex flex-col gap-2 border-b border-[#2D2A20] bg-[#FAF8F4] px-5 py-3">
+        <div className="flex items-center gap-3">
+          <p className="text-[15px] font-bold text-[#2D2A20]">Event Feed</p>
+          <WorkspaceBadge
+            label={`${events.length} raw · ${grouped.length} grouped`}
+            tone="default"
+          />
         </div>
-        <WorkspaceBadge label={`${events.length} events`} tone="default" />
+        <div className="flex flex-wrap items-center gap-1.5">
+          {ALL_BUCKETS.map((bucket) => {
+            const count = summary[bucket]
+            if (count === 0) return null
+            const enabled = enabledBuckets.has(bucket)
+            const Icon = BUCKET_ICONS[bucket]
+            return (
+              <button
+                key={bucket}
+                type="button"
+                onClick={() => toggleBucket(bucket)}
+                aria-pressed={enabled}
+                className={joinClasses(
+                  'inline-flex items-center gap-1.5 rounded-full border px-[10px] py-1 text-[11px] font-medium transition-colors',
+                  enabled
+                    ? 'border-[#2D2A20] bg-[#FFFBEB] text-[#2D2A20]'
+                    : 'border-[#D6D3D1] bg-transparent text-[#A8A29E]'
+                )}
+              >
+                <Icon size={12} />
+                <span>{BUCKET_LABELS[bucket]}</span>
+                <span className="font-mono text-[10px]">{count}</span>
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       <div className="relative flex-1 min-h-0">
@@ -115,16 +197,18 @@ export function WorkspaceCenterPane({
           className="h-full overflow-y-auto px-5 py-4"
         >
           {selectedBundle ? (
-            events.length > 0 ? (
+            visibleGroups.length > 0 ? (
               <div className="flex flex-col gap-3">
-                {events.map((event) => (
-                  <EventCard key={event.id} event={event} />
+                {visibleGroups.map((group) => (
+                  <EventGroupCard key={group.key} group={group} />
                 ))}
               </div>
             ) : (
               <EmptyWorkspaceState>
                 {hasQuery
                   ? 'No feed events match that search yet.'
+                  : events.length > 0
+                  ? 'All matching events are hidden — re-enable a filter chip above.'
                   : 'The active bundle does not have any events yet.'}
               </EmptyWorkspaceState>
             )
