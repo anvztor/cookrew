@@ -85,6 +85,12 @@ export interface Bundle {
   readonly cookedAt: string | null
   readonly digestedAt: string | null
   readonly blockedReason: string | null
+  /** Validated pydantic-graph source attached by the planner. Null until
+   *  the planner POSTs back to /bundles/{id}/graph. */
+  readonly graphCode: string | null
+  /** Mermaid flowchart rendered from the validated graph. Null until
+   *  the bundle has graph_code attached. */
+  readonly graphMermaid: string | null
 }
 
 export interface Task {
@@ -98,6 +104,10 @@ export interface Task {
   readonly claimedAt: string | null
   readonly completedAt: string | null
   readonly blockedReason: string | null
+  /** The graph step id this task corresponds to (e.g. "scope", "implement").
+   *  Set by BundleService.attach_graph_artifact when the task is created
+   *  from a graph node. Null for tasks created outside the graph flow. */
+  readonly graphNodeId: string | null
 }
 
 export interface FactRef {

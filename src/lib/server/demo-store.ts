@@ -296,6 +296,8 @@ function bundle(
     cookedAt: cookedMinutesAgo === null ? null : isoMinutesAgo(cookedMinutesAgo),
     digestedAt: digestedMinutesAgo === null ? null : isoMinutesAgo(digestedMinutesAgo),
     blockedReason,
+    graphCode: null,
+    graphMermaid: null,
   }
 }
 
@@ -321,6 +323,7 @@ function task(
     claimedAt: claimedMinutesAgo === null ? null : isoMinutesAgo(claimedMinutesAgo),
     completedAt: completedMinutesAgo === null ? null : isoMinutesAgo(completedMinutesAgo),
     blockedReason,
+    graphNodeId: null,
   }
 }
 
@@ -552,6 +555,8 @@ export function createBundleInDemo(input: {
     cookedAt: null,
     digestedAt: null,
     blockedReason: null,
+    graphCode: null,
+    graphMermaid: null,
   }
 
   const createdTasks = effectiveTaskTitles.map((title, index) => ({
@@ -565,6 +570,7 @@ export function createBundleInDemo(input: {
     claimedAt: index === 0 ? now : null,
     completedAt: null,
     blockedReason: null,
+    graphNodeId: null,
   } satisfies Task))
 
   const promptEvent: Event = {

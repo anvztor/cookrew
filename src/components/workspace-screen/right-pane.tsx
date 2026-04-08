@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { ArrowRight, Eye, RotateCcw } from 'lucide-react'
+import { useMemo } from 'react'
 import { formatRelativeTime } from '@/lib/format'
+import { GraphMermaidView } from './graph-mermaid-view'
 import { getTaskPresentation } from './helpers'
 import {
   buttonClassName,
@@ -36,6 +38,17 @@ export function WorkspaceRightPane({
       ? { label: 'blocked', tone: 'amber' as const }
       : { label: 'pending', tone: 'slate' as const }
 
+  // Mermaid diagram + currently-running graph node, derived from the
+  // bundle's attached graph code and the first in-flight task.
+  const graphMermaid = selectedBundle?.bundle.graphMermaid ?? null
+  const runningGraphNodeId = useMemo(() => {
+    if (selectedBundle == null) return null
+    const inFlight = selectedBundle.tasks.find(
+      (t) => t.status === 'working' || t.status === 'claimed',
+    )
+    return inFlight?.graphNodeId ?? null
+  }, [selectedBundle])
+
   return (
     <aside
       data-testid={testId}
@@ -57,6 +70,27 @@ export function WorkspaceRightPane({
           <span>{`owner: ${selectedBundle?.bundle.createdBy ?? 'n/a'}`}</span>
         </div>
       </section>
+
+      {graphMermaid && (
+        <section className="border-b border-[#2D2A20] px-4 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#57534E]">
+              Workflow Graph
+            </p>
+            {runningGraphNodeId && (
+              <span className="text-[11px] font-semibold text-[#059669]">
+                running: {runningGraphNodeId}
+              </span>
+            )}
+          </div>
+          <div className="mt-3">
+            <GraphMermaidView
+              code={graphMermaid}
+              highlightedNodeId={runningGraphNodeId}
+            />
+          </div>
+        </section>
+      )}
 
       <section className="border-b border-[#2D2A20] px-4 py-3">
         <div className="flex items-center justify-between gap-3">

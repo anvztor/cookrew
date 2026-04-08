@@ -93,6 +93,8 @@ interface RawBundle {
   cooked_at: string | null
   digested_at: string | null
   blocked_reason: string | null
+  graph_code?: string | null
+  graph_mermaid?: string | null
 }
 
 interface RawTask {
@@ -106,6 +108,7 @@ interface RawTask {
   claimed_at: string | null
   completed_at: string | null
   blocked_reason: string | null
+  graph_node_id?: string | null
 }
 
 interface RawFactRef {
@@ -327,6 +330,8 @@ function normalizeBundle(bundle: RawBundle): Bundle {
     cookedAt: bundle.cooked_at,
     digestedAt: bundle.digested_at,
     blockedReason: bundle.blocked_reason,
+    graphCode: bundle.graph_code ?? null,
+    graphMermaid: bundle.graph_mermaid ?? null,
   }
 }
 
@@ -362,6 +367,7 @@ function normalizeTask(task: RawTask) {
     claimedAt: task.claimed_at,
     completedAt: task.completed_at,
     blockedReason: task.blocked_reason,
+    graphNodeId: task.graph_node_id ?? null,
   } as const
 }
 
