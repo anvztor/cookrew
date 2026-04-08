@@ -932,31 +932,41 @@ export async function createBundle(
 ): Promise<{ bundleId: string }> {
   const userSeeds = normalizeTaskSeeds(input.taskTitles)
 
-  // If user provided task seeds, use them as simple tasks (no deps)
-  // Otherwise, use the orchestrator planner to decompose the prompt
-  // into tasks WITH dependency edges
+  // Three flows for producing the bundle's task list:
+  //
+  //   1. User supplied explicit task titles → create them as simple tasks.
+  //      Legacy manual-planning path, still supported.
+  //
+  //   2. KrewHub proxy is configured → create an EMPTY bundle and let
+  //      krewhub's PlannerDispatchController dispatch the prompt to a
+  //      registered planner agent (`krewcli join --planner`). The planner
+  //      generates pydantic-graph code and POSTs it to
+  //      /api/v1/bundles/{id}/graph, which creates one task per graph
+  //      node with dependencies derived from the graph edges. The
+  //      GraphRunnerController then runs the whole thing.
+  //
+  //      Do NOT seed this path with a synthetic "Orchestrate: ..." task —
+  //      that's the legacy OrchestratorExecutor contract which has been
+  //      removed. A bundle-with-one-task here would sit as a normal task
+  //      that TaskDispatchController would claim, bypassing the graph
+  //      flow entirely.
+  //
+  //   3. Demo mode (no krewhub) → local heuristic planner fakes tasks.
   let tasksPayload: Array<{
     title: string
     description?: string
     depends_on_task_ids?: string[]
+    id?: string
   }>
 
   if (userSeeds.length > 0) {
     tasksPayload = userSeeds.map((title) => ({ title }))
   } else if (hasKrewHubProxy(proxySettings)) {
-    // Delegate ALL planning to the orchestrator agent.
-    // Create a single "orchestrate" task — krewhub dispatches it to the
-    // orchestrator, which generates a pydantic-graph workflow, creates
-    // sub-tasks, and executes them via A2A agents.
-    const excerpt = input.prompt.replace(/\s+/g, ' ').trim().slice(0, 60)
-    tasksPayload = [
-      {
-        title: `Orchestrate: ${excerpt}`,
-        description: input.prompt,
-      },
-    ]
+    // Empty bundle → planner will populate it asynchronously via
+    // /api/v1/bundles/{id}/graph.
+    tasksPayload = []
   } else {
-    // Demo mode fallback: local heuristic planner
+    // Demo mode fallback: local heuristic planner.
     const planned = planTasksFromPrompt(input.prompt)
     const taskIds = planned.map((_, i) => `planned_${i}`)
     tasksPayload = planned.map((task, i) => ({
