@@ -25,16 +25,7 @@ interface ProjectCard {
   readonly color: string
 }
 
-const SAMPLE_PROJECTS: readonly ProjectCard[] = [
-  { emoji: '\u26A1', title: 'API Gateway Service', owner: '@alice', bounty: '$500', difficulty: 'Advanced', color: '#F97316' },
-  { emoji: '\uD83E\uDD16', title: 'ML Training Framework', owner: '@bob', bounty: '$350', difficulty: 'Intermediate', color: '#9B8ACB' },
-  { emoji: '\uD83D\uDCDD', title: 'Auto Doc Generator', owner: '@charlie', bounty: '$200', difficulty: 'Beginner', color: '#10B981' },
-  { emoji: '\uD83D\uDD27', title: 'CI/CD Pipeline', owner: '@dave', bounty: '$800', difficulty: 'Advanced', color: '#FFD600' },
-  { emoji: '\uD83D\uDD17', title: 'Microservice Orchestrator', owner: '@eve', bounty: '$600', difficulty: 'Advanced', color: '#EA580C' },
-  { emoji: '\uD83D\uDCCA', title: 'Data Viz Dashboard', owner: '@frank', bounty: '$450', difficulty: 'Intermediate', color: '#F59E0B' },
-  { emoji: '\uD83D\uDEE1\uFE0F', title: 'Security Audit Tool', owner: '@grace', bounty: '$700', difficulty: 'Advanced', color: '#EF4444' },
-  { emoji: '\uD83D\uDCF1', title: 'Mobile SDK Integration', owner: '@hank', bounty: '$300', difficulty: 'Beginner', color: '#3B82F6' },
-]
+const SAMPLE_PROJECTS: readonly ProjectCard[] = []
 
 export function HomeScreen() {
   const [data, setData] = useState<CookbookData | null>(null)
