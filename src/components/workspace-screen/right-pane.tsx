@@ -17,6 +17,7 @@ export function WorkspaceRightPane({
   allDependencies,
   artifactCount,
   blockedTaskCount,
+  canRerun,
   bundleSequence,
   completedTaskCount,
   isRerunning,
@@ -249,7 +250,7 @@ export function WorkspaceRightPane({
             </span>
 
             <div className="flex items-center gap-2">
-              {blockedTaskCount > 0 ? (
+              {canRerun ? (
                 <button
                   type="button"
                   aria-label="Re-Run"
@@ -285,12 +286,16 @@ export function WorkspaceRightPane({
             </div>
           </div>
 
-          {blockedTaskCount === 0 ? null : (
+          {blockedTaskCount > 0 ? (
             <p className="text-[11px] font-medium text-[#D97706]">
               {blockedTaskCount} blocked task{blockedTaskCount === 1 ? '' : 's'} can be reopened
               for reassignment.
             </p>
-          )}
+          ) : canRerun ? (
+            <p className="text-[11px] font-medium text-[#D97706]">
+              Bundle is blocked — Re-Run retries the graph from the top.
+            </p>
+          ) : null}
         </div>
       </section>
     </aside>
