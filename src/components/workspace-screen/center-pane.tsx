@@ -1,7 +1,14 @@
-import { useMemo } from 'react'
-import { AtSign, Filter, Send } from 'lucide-react'
-import { EventCard } from './event-card'
-import { groupEvents } from './group-events'
+'use client'
+
+import { AtSign, ArrowDown, Brain, MessageSquare, PlayCircle, Send, Terminal, Zap } from 'lucide-react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { EventGroupCard } from './event-group-card'
+import {
+  bucketOf,
+  groupEvents,
+  summarize,
+  type FeedBucket,
+} from './group-events'
 import {
   buttonClassName,
   EmptyWorkspaceState,
@@ -10,6 +17,33 @@ import {
 } from './shared'
 import { TerminalBlock } from './terminal-block'
 import type { WorkspaceCenterPaneProps } from './types'
+
+const ALL_BUCKETS: readonly FeedBucket[] = [
+  'tools',
+  'thinking',
+  'messages',
+  'sessions',
+  'other',
+] as const
+
+const BUCKET_LABELS: Record<FeedBucket, string> = {
+  tools: 'tools',
+  thinking: 'thinking',
+  messages: 'messages',
+  sessions: 'sessions',
+  other: 'other',
+}
+
+const BUCKET_ICONS: Record<FeedBucket, React.ElementType> = {
+  tools: Terminal,
+  thinking: Brain,
+  messages: MessageSquare,
+  sessions: PlayCircle,
+  other: Zap,
+}
+
+/** Distance (px) from the bottom at which we consider the user "pinned". */
+const BOTTOM_STICKY_THRESHOLD = 120
 
 export function WorkspaceCenterPane({
   events,
@@ -29,11 +63,90 @@ export function WorkspaceCenterPane({
   taskSeedText,
   testId,
 }: WorkspaceCenterPaneProps) {
-  // Coalesce runs of stream events (stdout/stderr from CLI agents) into
-  // dense terminal blocks so a chatty codex run (4k+ lines) stays usable.
-  // Structural events (prompt, plan, tool_use, thinking, session markers,
-  // milestone) still render as their own cards.
-  const feedGroups = useMemo(() => groupEvents(events), [events])
+  const scrollRef = useRef<HTMLDivElement | null>(null)
+  const stickyBottomRef = useRef(true)
+  const prevCountRef = useRef(events.length)
+  const [newCount, setNewCount] = useState(0)
+  const [enabledBuckets, setEnabledBuckets] = useState<Set<FeedBucket>>(
+    () => new Set<FeedBucket>(ALL_BUCKETS)
+  )
+
+  // Collapse raw events into richer groups (pair PreToolUse+PostToolUse,
+  // bundle consecutive reasoning, dedupe repeated session boundaries).
+  const grouped = useMemo(() => groupEvents(events), [events])
+  const summary = useMemo(() => summarize(grouped), [grouped])
+  const visibleGroups = useMemo(
+    () => grouped.filter((g) => enabledBuckets.has(bucketOf(g))),
+    [grouped, enabledBuckets]
+  )
+
+  const toggleBucket = (bucket: FeedBucket) => {
+    setEnabledBuckets((prev) => {
+      const next = new Set(prev)
+      if (next.has(bucket)) next.delete(bucket)
+      else next.add(bucket)
+      // Never allow all chips to be off — snap back to a useful default.
+      if (next.size === 0) {
+        for (const b of ALL_BUCKETS) next.add(b)
+      }
+      return next
+    })
+  }
+
+  // Track whether the user is pinned near the bottom of the feed.
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const onScroll = () => {
+      const distance = el.scrollHeight - el.scrollTop - el.clientHeight
+      const pinned = distance <= BOTTOM_STICKY_THRESHOLD
+      stickyBottomRef.current = pinned
+      if (pinned && newCount !== 0) setNewCount(0)
+    }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [newCount])
+
+  // After events update: if we were pinned, auto-scroll. Otherwise
+  // accumulate a "N new" counter the user can click to jump down.
+  useLayoutEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const prev = prevCountRef.current
+    prevCountRef.current = events.length
+    if (events.length > prev) {
+      if (stickyBottomRef.current) {
+        el.scrollTop = el.scrollHeight
+      } else {
+        setNewCount((n) => n + (events.length - prev))
+      }
+    } else if (events.length < prev) {
+      // Bundle switch: reset counter and pin to bottom.
+      setNewCount(0)
+      stickyBottomRef.current = true
+      el.scrollTop = el.scrollHeight
+    }
+  }, [events.length])
+
+  // When the selected bundle changes entirely, scroll to the newest
+  // event so the user sees the most recent activity.
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    stickyBottomRef.current = true
+    setNewCount(0)
+    requestAnimationFrame(() => {
+      el.scrollTop = el.scrollHeight
+    })
+  }, [selectedBundle?.bundle.id])
+
+  const scrollToBottom = () => {
+    const el = scrollRef.current
+    if (!el) return
+    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+    stickyBottomRef.current = true
+    setNewCount(0)
+  }
 
   return (
     <section
@@ -43,47 +156,81 @@ export function WorkspaceCenterPane({
         mobile ? 'border-b border-[#2D2A20]' : ''
       )}
     >
-      <div className="flex items-center gap-3 border-b border-[#2D2A20] bg-[#FAF8F4] px-5 py-3">
-        <p className="text-[15px] font-bold text-[#2D2A20]">Event Feed</p>
-        <div className="inline-flex items-center gap-1.5 rounded-full border border-[#2D2A20] bg-[#FFFBEB] px-[10px] py-1">
-          <Filter size={12} className="text-[#57534E]" />
-          <span className="text-[11px] font-medium text-[#57534E]">All types</span>
+      <div className="flex flex-col gap-2 border-b border-[#2D2A20] bg-[#FAF8F4] px-5 py-3">
+        <div className="flex items-center gap-3">
+          <p className="text-[15px] font-bold text-[#2D2A20]">Event Feed</p>
+          <WorkspaceBadge
+            label={`${events.length} raw · ${grouped.length} grouped`}
+            tone="default"
+          />
         </div>
-        <WorkspaceBadge label={`${events.length} events`} tone="default" />
+        <div className="flex flex-wrap items-center gap-1.5">
+          {ALL_BUCKETS.map((bucket) => {
+            const count = summary[bucket]
+            if (count === 0) return null
+            const enabled = enabledBuckets.has(bucket)
+            const Icon = BUCKET_ICONS[bucket]
+            return (
+              <button
+                key={bucket}
+                type="button"
+                onClick={() => toggleBucket(bucket)}
+                aria-pressed={enabled}
+                className={joinClasses(
+                  'inline-flex items-center gap-1.5 rounded-full border px-[10px] py-1 text-[11px] font-medium transition-colors',
+                  enabled
+                    ? 'border-[#2D2A20] bg-[#FFFBEB] text-[#2D2A20]'
+                    : 'border-[#D6D3D1] bg-transparent text-[#A8A29E]'
+                )}
+              >
+                <Icon size={12} />
+                <span>{BUCKET_LABELS[bucket]}</span>
+                <span className="font-mono text-[10px]">{count}</span>
+              </button>
+            )
+          })}
+        </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-5 py-4">
-        {selectedBundle ? (
-          events.length > 0 ? (
-            <div className="flex flex-col gap-3">
-              {feedGroups.map((group) =>
-                group.kind === 'terminal' ? (
-                  <TerminalBlock
-                    key={group.id}
-                    actorId={group.actorId}
-                    events={group.events}
-                    stdoutLines={group.stdoutLines}
-                    stderrLines={group.stderrLines}
-                    firstCreatedAt={group.firstCreatedAt}
-                    lastCreatedAt={group.lastCreatedAt}
-                  />
-                ) : (
-                  <EventCard key={group.event.id} event={group.event} />
-                )
-              )}
-            </div>
+      <div className="relative flex-1 min-h-0">
+        <div
+          ref={scrollRef}
+          className="h-full overflow-y-auto px-5 py-4"
+        >
+          {selectedBundle ? (
+            visibleGroups.length > 0 ? (
+              <div className="flex flex-col gap-3">
+                {visibleGroups.map((group) => (
+                  <EventGroupCard key={group.key} group={group} />
+                ))}
+              </div>
+            ) : (
+              <EmptyWorkspaceState>
+                {hasQuery
+                  ? 'No feed events match that search yet.'
+                  : events.length > 0
+                  ? 'All matching events are hidden — re-enable a filter chip above.'
+                  : 'The active bundle does not have any events yet.'}
+              </EmptyWorkspaceState>
+            )
           ) : (
             <EmptyWorkspaceState>
-              {hasQuery
-                ? 'No feed events match that search yet.'
-                : 'The active bundle does not have any events yet.'}
+              Create a bundle to populate the workspace feed and right sidebar.
             </EmptyWorkspaceState>
-          )
-        ) : (
-          <EmptyWorkspaceState>
-            Create a bundle to populate the workspace feed and right sidebar.
-          </EmptyWorkspaceState>
-        )}
+          )}
+        </div>
+
+        {newCount > 0 ? (
+          <button
+            type="button"
+            onClick={scrollToBottom}
+            className="absolute bottom-4 left-1/2 inline-flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-[#2D2A20] bg-[#2D2A20] px-4 py-1.5 text-[12px] font-semibold text-[#FAF8F4] shadow-lg transition-transform hover:-translate-y-0.5"
+            aria-label={`Jump to ${newCount} new event${newCount === 1 ? '' : 's'}`}
+          >
+            <ArrowDown size={14} />
+            {newCount} new event{newCount === 1 ? '' : 's'}
+          </button>
+        ) : null}
       </div>
 
       <div className="border-t border-[#2D2A20] bg-[#FFFEF5] px-5 py-4">

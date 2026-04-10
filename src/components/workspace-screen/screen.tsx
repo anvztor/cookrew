@@ -100,6 +100,13 @@ export function WorkspaceScreen({ recipeId }: WorkspaceScreenProps) {
   const query = deferredWorkspaceSearch.trim().toLowerCase()
   const allTasks = selectedBundle?.tasks ?? []
   const blockedTaskCount = allTasks.filter((task) => task.status === 'blocked').length
+  // Re-Run is valid whenever the *bundle* is blocked, not only when
+  // individual tasks are. The graph runner can mark the bundle BLOCKED
+  // (e.g. "no eligible gateway in pool") before a single task row
+  // transitions out of `open`, and we still want the Re-Run affordance
+  // to appear so the user can retry after re-onboarding agents.
+  const bundleStatus = selectedBundle?.bundle.status
+  const canRerun = blockedTaskCount > 0 || bundleStatus === 'blocked'
   const reviewHref = selectedBundle
     ? `/recipes/${recipeId}/bundles/${selectedBundle.bundle.id}/digest`
     : null
@@ -199,7 +206,7 @@ export function WorkspaceScreen({ recipeId }: WorkspaceScreenProps) {
       return
     }
 
-    if (blockedTaskCount === 0) {
+    if (!canRerun) {
       setError('No blocked tasks are available to rerun.')
       return
     }
@@ -223,7 +230,7 @@ export function WorkspaceScreen({ recipeId }: WorkspaceScreenProps) {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen flex-col bg-[#FAF8F4] text-[#2D2A20]">
+      <div className="flex h-screen min-h-0 flex-col overflow-hidden bg-[#FAF8F4] text-[#2D2A20]">
         <WorkspaceHeader
           historyHref={historyHref}
           onSearchChange={setWorkspaceSearch}
@@ -238,7 +245,7 @@ export function WorkspaceScreen({ recipeId }: WorkspaceScreenProps) {
 
   if (!data) {
     return (
-      <div className="flex min-h-screen flex-col bg-[#FAF8F4] text-[#2D2A20]">
+      <div className="flex h-screen min-h-0 flex-col overflow-hidden bg-[#FAF8F4] text-[#2D2A20]">
         <WorkspaceHeader
           historyHref={historyHref}
           onSearchChange={setWorkspaceSearch}
@@ -254,7 +261,7 @@ export function WorkspaceScreen({ recipeId }: WorkspaceScreenProps) {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#FAF8F4] text-[#2D2A20]">
+    <div className="flex h-screen min-h-0 flex-col overflow-hidden bg-[#FAF8F4] text-[#2D2A20]">
       <WorkspaceHeader
         historyHref={historyHref}
         onSearchChange={setWorkspaceSearch}
@@ -317,6 +324,7 @@ export function WorkspaceScreen({ recipeId }: WorkspaceScreenProps) {
               allDependencies={allDependencies}
               artifactCount={artifactCount}
               blockedTaskCount={blockedTaskCount}
+              canRerun={canRerun}
               bundleSequence={bundleSequence}
               completedTaskCount={completedTaskCount}
               isRerunning={isRerunning}
@@ -364,6 +372,7 @@ export function WorkspaceScreen({ recipeId }: WorkspaceScreenProps) {
           allDependencies={allDependencies}
           artifactCount={artifactCount}
           blockedTaskCount={blockedTaskCount}
+          canRerun={canRerun}
           bundleSequence={bundleSequence}
           completedTaskCount={completedTaskCount}
           isRerunning={isRerunning}

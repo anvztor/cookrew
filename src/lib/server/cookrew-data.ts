@@ -94,6 +94,8 @@ interface RawBundle {
   cooked_at: string | null
   digested_at: string | null
   blocked_reason: string | null
+  graph_code?: string | null
+  graph_mermaid?: string | null
 }
 
 interface RawTask {
@@ -107,6 +109,7 @@ interface RawTask {
   claimed_at: string | null
   completed_at: string | null
   blocked_reason: string | null
+  graph_node_id?: string | null
 }
 
 interface RawFactRef {
@@ -138,6 +141,7 @@ interface RawEvent {
   sequence: number
   facts: RawFactRef[]
   code_refs: RawCodeRef[]
+  payload?: Record<string, unknown> | null
   created_at: string
   expires_at: string | null
 }
@@ -191,6 +195,7 @@ const DEFAULT_HEADERS = {
 export interface ProxySettings {
   readonly apiKey: string | null
   readonly baseUrl: string | null
+  readonly sessionToken: string | null
 }
 
 class KrewHubRequestError extends Error {
@@ -207,6 +212,7 @@ function getProxySettings(): ProxySettings {
   return {
     apiKey: process.env.KREWHUB_API_KEY ?? null,
     baseUrl: process.env.KREWHUB_BASE_URL ?? null,
+    sessionToken: null,
   }
 }
 
@@ -220,10 +226,23 @@ export function getProxySettingsFromRequest(request: Request): ProxySettings {
     return {
       apiKey: null,
       baseUrl: null,
+      sessionToken: null,
     }
   }
 
-  return getProxySettings()
+  // Extract JWT session token from httpOnly cookie
+  const sessionToken = cookieHeader
+    .split(';')
+    .map((c) => c.trim())
+    .find((c) => c.startsWith('krew_session=') || c.startsWith('krewhub_session='))
+    ?.split('=')
+    .slice(1)
+    .join('=') ?? null
+
+  return {
+    ...getProxySettings(),
+    sessionToken,
+  }
 }
 
 export function hasKrewHubProxy(
@@ -329,6 +348,8 @@ function normalizeBundle(bundle: RawBundle): Bundle {
     cookedAt: bundle.cooked_at,
     digestedAt: bundle.digested_at,
     blockedReason: bundle.blocked_reason,
+    graphCode: bundle.graph_code ?? null,
+    graphMermaid: bundle.graph_mermaid ?? null,
   }
 }
 
@@ -364,6 +385,7 @@ function normalizeTask(task: RawTask) {
     claimedAt: task.claimed_at,
     completedAt: task.completed_at,
     blockedReason: task.blocked_reason,
+    graphNodeId: task.graph_node_id ?? null,
   } as const
 }
 
@@ -381,6 +403,7 @@ function normalizeEvent(event: RawEvent) {
     sequence: event.sequence ?? 0,
     facts: event.facts.map(normalizeFact),
     codeRefs: event.code_refs.map(normalizeCodeRef),
+    payload: (event.payload ?? {}) as Record<string, unknown>,
     createdAt: event.created_at,
     expiresAt: event.expires_at,
   } as const
@@ -521,11 +544,18 @@ async function requestKrewHub<T>(
     throw new Error('KREWHUB_BASE_URL is not configured')
   }
 
+  // Prefer JWT session token over legacy API key
+  const authHeaders: Record<string, string> = proxySettings.sessionToken
+    ? { Authorization: `Bearer ${proxySettings.sessionToken}` }
+    : proxySettings.apiKey
+      ? { 'X-API-Key': proxySettings.apiKey }
+      : {}
+
   const response = await fetch(`${baseUrl}/api/v1${path}`, {
     ...init,
     headers: {
       ...DEFAULT_HEADERS,
-      ...(proxySettings.apiKey ? { 'X-API-Key': proxySettings.apiKey } : {}),
+      ...authHeaders,
       ...(init?.headers ?? {}),
     },
     cache: 'no-store',
@@ -1034,31 +1064,41 @@ export async function createBundle(
 ): Promise<{ bundleId: string }> {
   const userSeeds = normalizeTaskSeeds(input.taskTitles)
 
-  // If user provided task seeds, use them as simple tasks (no deps)
-  // Otherwise, use the orchestrator planner to decompose the prompt
-  // into tasks WITH dependency edges
+  // Three flows for producing the bundle's task list:
+  //
+  //   1. User supplied explicit task titles → create them as simple tasks.
+  //      Legacy manual-planning path, still supported.
+  //
+  //   2. KrewHub proxy is configured → create an EMPTY bundle and let
+  //      krewhub's PlannerDispatchController dispatch the prompt to a
+  //      registered planner agent (`krewcli join --planner`). The planner
+  //      generates pydantic-graph code and POSTs it to
+  //      /api/v1/bundles/{id}/graph, which creates one task per graph
+  //      node with dependencies derived from the graph edges. The
+  //      GraphRunnerController then runs the whole thing.
+  //
+  //      Do NOT seed this path with a synthetic "Orchestrate: ..." task —
+  //      that's the legacy OrchestratorExecutor contract which has been
+  //      removed. A bundle-with-one-task here would sit as a normal task
+  //      that TaskDispatchController would claim, bypassing the graph
+  //      flow entirely.
+  //
+  //   3. Demo mode (no krewhub) → local heuristic planner fakes tasks.
   let tasksPayload: Array<{
     title: string
     description?: string
     depends_on_task_ids?: string[]
+    id?: string
   }>
 
   if (userSeeds.length > 0) {
     tasksPayload = userSeeds.map((title) => ({ title }))
   } else if (hasKrewHubProxy(proxySettings)) {
-    // Delegate ALL planning to the orchestrator agent.
-    // Create a single "orchestrate" task — krewhub dispatches it to the
-    // orchestrator, which generates a pydantic-graph workflow, creates
-    // sub-tasks, and executes them via A2A agents.
-    const excerpt = input.prompt.replace(/\s+/g, ' ').trim().slice(0, 60)
-    tasksPayload = [
-      {
-        title: `Orchestrate: ${excerpt}`,
-        description: input.prompt,
-      },
-    ]
+    // Empty bundle → planner will populate it asynchronously via
+    // /api/v1/bundles/{id}/graph.
+    tasksPayload = []
   } else {
-    // Demo mode fallback: local heuristic planner
+    // Demo mode fallback: local heuristic planner.
     const planned = planTasksFromPrompt(input.prompt)
     const taskIds = planned.map((_, i) => `planned_${i}`)
     tasksPayload = planned.map((task, i) => ({

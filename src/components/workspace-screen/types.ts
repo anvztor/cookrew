@@ -89,6 +89,14 @@ export interface WorkspaceRightPaneProps {
   readonly allDependencies: readonly DependencyRow[]
   readonly artifactCount: number
   readonly blockedTaskCount: number
+  /**
+   * True when Re-Run is a valid action for the selected bundle. This is
+   * broader than `blockedTaskCount > 0`: the graph runner can flip the
+   * bundle itself to BLOCKED (e.g. "no eligible gateway") before any task
+   * row transitions out of `open`, and we still want the user to be
+   * able to re-run from the top once they re-onboard agents.
+   */
+  readonly canRerun: boolean
   readonly bundleSequence: number
   readonly completedTaskCount: number
   readonly isRerunning: boolean

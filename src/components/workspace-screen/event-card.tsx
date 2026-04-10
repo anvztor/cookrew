@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { ChevronDown, ChevronUp } from 'lucide-react'
-import { formatRelativeTime } from '@/lib/format'
+import { formatRelativeTime, formatTimestamp } from '@/lib/format'
 import { getEventPresentation } from './helpers'
 import { joinClasses, WorkspaceEventBadge } from './shared'
 import { SessionPill } from './session-pill'
@@ -12,6 +12,14 @@ import { ToolCallCard } from './tool-call-card'
 import { ToolResultCard } from './tool-result-card'
 import type { Event } from '@/types'
 
+const SOURCE_TONE: Record<string, string> = {
+  codex: 'bg-[#FEF3C7] text-[#92400E]',
+  claude: 'bg-[#EDE9FE] text-[#5B21B6]',
+  cursor: 'bg-[#DBEAFE] text-[#1E40AF]',
+  gemini: 'bg-[#DCFCE7] text-[#166534]',
+  opencode: 'bg-[#FFE4E6] text-[#9F1239]',
+}
+
 /** Body length beyond which we show the expand/collapse toggle. */
 const COLLAPSE_THRESHOLD = 200
 
@@ -19,114 +27,58 @@ function isAgentOutput(event: Event): boolean {
   return event.type === 'milestone' && event.actorType === 'agent'
 }
 
+function isHookEvent(event: Event): boolean {
+  return event.actorType === 'hook'
+}
+
+function hookSourceLabel(event: Event): string | null {
+  if (!isHookEvent(event)) return null
+  const source = event.payload?._source
+  return typeof source === 'string' ? source : null
+}
+
 /**
- * Is this event one of the "rich telemetry" types that has its own
- * structured renderer? These events are displayed compactly with no
- * metadata chrome (badge/actor/timestamp) to keep the feed scannable
- * during a long tool-call stream.
+ * Resolve the body to display for an event.
+ *
+ * Codex agent_reply hooks (and any other Notification-derived hook
+ * event from a non-tool source) historically land with the literal
+ * body "Notification" — the actual prose lives in
+ * `payload.last_assistant_message`. The bridge `_build_body` fix
+ * makes new events come through with the message inline, but old
+ * rows in the krewhub events table still have body="Notification".
+ *
+ * Falling back here means we render the right thing regardless of
+ * when the event was ingested.
  */
-function isStructuredTelemetry(event: Event): boolean {
-  if (!event.payload) return false
-  return (
-    event.type === 'session_start' ||
-    event.type === 'session_end' ||
-    event.type === 'tool_use' ||
-    event.type === 'tool_result' ||
-    event.type === 'thinking' ||
-    event.type === 'agent_reply'
-  )
+function displayBody(event: Event): string {
+  const body = event.body || ''
+  const trimmed = body.trim()
+  if (trimmed && trimmed !== 'Notification') return body
+  const payload = event.payload as Record<string, unknown> | null | undefined
+  const msg = payload?.last_assistant_message
+  if (typeof msg === 'string' && msg.trim()) return msg
+  const summary = payload?.summary
+  if (typeof summary === 'string' && summary.trim()) return summary
+  return body
 }
 
-export function EventCard({ event }: { readonly event: Event }) {
-  // Structured telemetry events render as a compact sub-component
-  // with no outer chrome — they're designed to stack densely.
-  if (isStructuredTelemetry(event)) {
-    return <StructuredEvent event={event} />
-  }
-
-  return <LegacyEventCard event={event} />
-}
-
-function StructuredEvent({ event }: { readonly event: Event }) {
-  const payload = event.payload
-  if (!payload) {
-    return <LegacyEventCard event={event} />
-  }
-
-  const timestamp = (
-    <span
-      className="text-[10px] text-[#A8A29E]"
-      title={new Date(event.createdAt).toLocaleString()}
-    >
-      {formatRelativeTime(event.createdAt)}
-    </span>
-  )
-
-  switch (payload.kind) {
-    case 'session_start':
-      return (
-        <div className="flex items-center gap-2 px-[14px] py-1">
-          <SessionPill payload={payload} kind="session_start" />
-          {timestamp}
-        </div>
-      )
-    case 'session_end':
-      return (
-        <div className="flex items-center gap-2 px-[14px] py-1">
-          <SessionPill payload={payload} kind="session_end" />
-          {timestamp}
-        </div>
-      )
-    case 'thinking':
-      return (
-        <div className="px-[14px] py-0.5">
-          <ThinkingBlock text={payload.text} />
-        </div>
-      )
-    case 'tool_use':
-      return (
-        <div className="px-[14px] py-0.5">
-          <ToolCallCard
-            toolName={payload.toolName}
-            input={payload.input}
-            toolUseId={payload.toolUseId}
-          />
-        </div>
-      )
-    case 'tool_result':
-      return (
-        <div className="px-[14px] py-0.5">
-          <ToolResultCard
-            output={payload.output}
-            isError={payload.isError}
-            toolUseId={payload.toolUseId}
-          />
-        </div>
-      )
-    case 'agent_reply': {
-      const isStderr = payload.stream === 'stderr'
-      const containerClass = isStderr
-        ? 'rounded-md border border-[#F59E0B]/40 bg-[#FFFBEB] px-3 py-2 text-[12px] leading-[1.45] text-[#92400E] whitespace-pre-wrap font-mono'
-        : 'rounded-md border border-[#E7E5E4] bg-white px-3 py-2 text-[13px] leading-[1.45] text-[#2D2A20] whitespace-pre-wrap'
-      return (
-        <div className="px-[14px] py-0.5">
-          <div className={containerClass}>
-            {isStderr ? <span className="mr-1 text-[10px] uppercase tracking-wide opacity-70">stderr</span> : null}
-            {payload.text}
-          </div>
-        </div>
-      )
-    }
-    default:
-      return <LegacyEventCard event={event} />
-  }
-}
-
-function LegacyEventCard({ event }: { readonly event: Event }) {
+export function EventCard({
+  event,
+  index = 0,
+  turn = 0,
+}: {
+  readonly event: Event
+  readonly index?: number
+  readonly turn?: number
+}) {
   const presentation = getEventPresentation(event)
   const agentOutput = isAgentOutput(event)
-  const isLong = !agentOutput && event.body.length > COLLAPSE_THRESHOLD
+  const hook = isHookEvent(event)
+  const source = hookSourceLabel(event)
+  const body = displayBody(event)
+  const isLong = !agentOutput && body.length > COLLAPSE_THRESHOLD
   const [expanded, setExpanded] = useState(!isLong)
+  const sourceClass = source ? SOURCE_TONE[source] ?? 'bg-[#E7E5E4] text-[#44403C]' : ''
 
   return (
     <article className="flex flex-col gap-2 border border-[#2D2A20] bg-[#FFFEF5] px-[14px] py-[14px]">
@@ -140,6 +92,21 @@ function LegacyEventCard({ event }: { readonly event: Event }) {
           <span className="text-[13px] font-semibold text-[#2D2A20]">
             {event.actorId}
           </span>
+          {source ? (
+            <span
+              className={joinClasses('rounded px-1.5 py-0.5 font-mono text-[10px]', sourceClass)}
+            >
+              {source}
+            </span>
+          ) : null}
+          {index ? (
+            <span
+              className="font-mono text-[10px] text-[#A8A29E]"
+              title={`event #${index} · turn ${turn}`}
+            >
+              #{index}
+            </span>
+          ) : null}
         </div>
 
         <div className="flex items-center gap-3">
@@ -153,14 +120,17 @@ function LegacyEventCard({ event }: { readonly event: Event }) {
               {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
             </button>
           ) : null}
-          <span className="text-[11px] text-[#57534E]">
+          <span
+            className="text-[11px] text-[#57534E]"
+            title={formatTimestamp(event.createdAt)}
+          >
             {formatRelativeTime(event.createdAt)}
           </span>
         </div>
       </div>
 
       {agentOutput ? (
-        <ShellOutput body={event.body} />
+        <ShellOutput body={body} />
       ) : (
         <p
           className={joinClasses(
@@ -169,9 +139,53 @@ function LegacyEventCard({ event }: { readonly event: Event }) {
             !expanded ? 'line-clamp-3' : ''
           )}
         >
-          {event.body}
+          {body}
         </p>
       )}
+
+      {hook && expanded ? <HookPayloadDetails payload={event.payload} /> : null}
     </article>
+  )
+}
+
+function HookPayloadDetails({
+  payload,
+}: {
+  readonly payload: Readonly<Record<string, unknown>>
+}) {
+  const toolName = typeof payload.tool_name === 'string' ? payload.tool_name : ''
+  const cwd = typeof payload.cwd === 'string' ? payload.cwd : ''
+  const sessionId =
+    typeof payload.session_id === 'string' ? payload.session_id : ''
+  const toolInput =
+    payload.tool_input && typeof payload.tool_input === 'object'
+      ? (payload.tool_input as Record<string, unknown>)
+      : null
+
+  const rows: Array<{ label: string; value: string }> = []
+  if (toolName) rows.push({ label: 'tool', value: toolName })
+  if (toolInput) {
+    for (const key of ['file_path', 'path', 'command', 'pattern', 'query', 'url']) {
+      const v = toolInput[key]
+      if (typeof v === 'string' && v) {
+        rows.push({ label: key, value: v })
+        break
+      }
+    }
+  }
+  if (cwd) rows.push({ label: 'cwd', value: cwd })
+  if (sessionId) rows.push({ label: 'session', value: sessionId.slice(0, 16) })
+
+  if (rows.length === 0) return null
+
+  return (
+    <dl className="mt-1 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-0.5 font-mono text-[11px] text-[#57534E]">
+      {rows.map((row) => (
+        <div key={row.label} className="contents">
+          <dt className="text-[#A8A29E]">{row.label}</dt>
+          <dd className="truncate text-[#2D2A20]">{row.value}</dd>
+        </div>
+      ))}
+    </dl>
   )
 }
