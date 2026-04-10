@@ -192,6 +192,7 @@ const DEFAULT_HEADERS = {
 export interface ProxySettings {
   readonly apiKey: string | null
   readonly baseUrl: string | null
+  readonly sessionToken: string | null
 }
 
 class KrewHubRequestError extends Error {
@@ -208,6 +209,7 @@ function getProxySettings(): ProxySettings {
   return {
     apiKey: process.env.KREWHUB_API_KEY ?? null,
     baseUrl: process.env.KREWHUB_BASE_URL ?? null,
+    sessionToken: null,
   }
 }
 
@@ -221,10 +223,23 @@ export function getProxySettingsFromRequest(request: Request): ProxySettings {
     return {
       apiKey: null,
       baseUrl: null,
+      sessionToken: null,
     }
   }
 
-  return getProxySettings()
+  // Extract JWT session token from httpOnly cookie
+  const sessionToken = cookieHeader
+    .split(';')
+    .map((c) => c.trim())
+    .find((c) => c.startsWith('krew_session=') || c.startsWith('krewhub_session='))
+    ?.split('=')
+    .slice(1)
+    .join('=') ?? null
+
+  return {
+    ...getProxySettings(),
+    sessionToken,
+  }
 }
 
 export function hasKrewHubProxy(
@@ -419,11 +434,18 @@ async function requestKrewHub<T>(
     throw new Error('KREWHUB_BASE_URL is not configured')
   }
 
+  // Prefer JWT session token over legacy API key
+  const authHeaders: Record<string, string> = proxySettings.sessionToken
+    ? { Authorization: `Bearer ${proxySettings.sessionToken}` }
+    : proxySettings.apiKey
+      ? { 'X-API-Key': proxySettings.apiKey }
+      : {}
+
   const response = await fetch(`${baseUrl}/api/v1${path}`, {
     ...init,
     headers: {
       ...DEFAULT_HEADERS,
-      ...(proxySettings.apiKey ? { 'X-API-Key': proxySettings.apiKey } : {}),
+      ...authHeaders,
       ...(init?.headers ?? {}),
     },
     cache: 'no-store',

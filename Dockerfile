@@ -15,6 +15,9 @@ COPY . .
 
 ENV NODE_ENV=production
 
+ARG NEXT_PUBLIC_KREW_AUTH_URL=https://auth.cookrew.dev
+ENV NEXT_PUBLIC_KREW_AUTH_URL=${NEXT_PUBLIC_KREW_AUTH_URL}
+
 RUN bun run build
 
 FROM oven/bun:1.3.11 AS runner

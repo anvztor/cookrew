@@ -12,6 +12,8 @@ import {
   Users,
 } from 'lucide-react'
 import { getCookbookData } from '@/lib/api'
+import { useAuth } from '@/hooks/use-auth'
+import { SessionKeyPanel } from '@/components/session-key-panel'
 import type { CookbookData, CookbookGroup } from '@/types'
 
 const CATEGORIES = ['All', 'Frontend', 'Backend', 'DevOps', 'AI/ML', 'Docs', 'Testing'] as const
@@ -32,6 +34,7 @@ export function HomeScreen() {
   const [search, setSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState('All')
   const deferredSearch = useDeferredValue(search)
+  const { authenticated, loading: authLoading, walletAddress, accountId, login, logout } = useAuth()
 
   useEffect(() => {
     let isMounted = true
@@ -65,13 +68,35 @@ export function HomeScreen() {
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-primary">
-            <User size={16} className="text-text-primary" />
-          </div>
-          <span className="text-[14px] font-medium text-text-primary">Username</span>
-          <button type="button" className="flex h-8 w-8 items-center justify-center rounded-md">
-            <LogOut size={18} className="text-[#78716C]" />
-          </button>
+          {authenticated ? (
+            <>
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-primary">
+                <User size={16} className="text-text-primary" />
+              </div>
+              <span className="text-[14px] font-medium text-text-primary">
+                {walletAddress
+                  ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`
+                  : accountId?.slice(0, 12) ?? 'Account'}
+              </span>
+              <button
+                type="button"
+                onClick={() => void logout()}
+                className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-[#f0ece4] transition-colors"
+                title="Sign out"
+              >
+                <LogOut size={18} className="text-[#78716C]" />
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={login}
+              disabled={authLoading}
+              className="flex items-center gap-2 rounded-[10px] border-[1.5px] border-border-strong bg-accent-primary px-4 py-2 text-[14px] font-semibold text-text-primary transition-colors hover:bg-accent-primary-light disabled:opacity-50"
+            >
+              {authLoading ? 'Loading...' : 'Sign in'}
+            </button>
+          )}
         </div>
       </header>
 
@@ -146,6 +171,11 @@ export function HomeScreen() {
           <SampleProjectGrid />
         )}
       </section>
+
+      {/* Session key approval panel (floating, bottom-right) */}
+      {authenticated && (
+        <SessionKeyPanel smartAccountAddress={walletAddress} />
+      )}
     </div>
   )
 }
