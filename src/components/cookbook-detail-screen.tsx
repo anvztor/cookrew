@@ -221,26 +221,36 @@ function Sidebar({
           </span>
         </div>
         {onlineAgents.map((agent) => (
-          <div key={agent.agentId} className="flex items-center gap-2.5">
-            <span className="h-2 w-2 flex-shrink-0 rounded-full bg-[#10B981]" />
-            <span className="font-mono text-[12px] font-medium text-text-primary">
-              {agent.displayName}
+          <div key={agent.agentId} className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <span className="h-2 w-2 flex-shrink-0 rounded-full bg-[#10B981]" />
+              <span className="font-mono text-[12px] font-medium text-text-primary">
+                {agent.displayName}
+              </span>
+            </div>
+            <span className="rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+              Not minted
             </span>
-            <span className="text-[11px] text-text-secondary">executor</span>
           </div>
         ))}
         {offlineAgents.map((agent) => (
-          <div key={agent.agentId} className="flex items-center gap-2.5">
-            <span className="h-2 w-2 flex-shrink-0 rounded-full bg-[#4D4D4D] ring-1 ring-inset ring-[#A8A29E]" />
-            <span className="font-mono text-[12px] font-medium text-[#4D4D4D]">
-              {agent.displayName}
+          <div key={agent.agentId} className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <span className="h-2 w-2 flex-shrink-0 rounded-full bg-[#4D4D4D] ring-1 ring-inset ring-[#A8A29E]" />
+              <span className="font-mono text-[12px] font-medium text-[#4D4D4D]">
+                {agent.displayName}
+              </span>
+              <span className="text-[11px] text-[#A8A29E]">offline</span>
+            </div>
+            <span className="rounded border border-gray-300 bg-gray-50 px-1.5 py-0.5 text-[10px] font-medium text-gray-500">
+              Not minted
             </span>
-            <span className="text-[11px] text-[#A8A29E]">offline</span>
           </div>
         ))}
         {agents.length === 0 ? (
           <p className="text-[13px] text-text-secondary">No agents registered</p>
         ) : null}
+        <MintAgentsInline />
       </div>
     </aside>
   )
@@ -392,5 +402,64 @@ function RecipeStatusBadge({ status }: { status: RecipeStatusLabel }) {
     >
       {status}
     </span>
+  )
+}
+
+function MintAgentsInline() {
+  const [ops, setOps] = useState<Array<{ id: string; display_name: string; agent_name: string; userop: Record<string, string> }>>([])
+  const [minting, setMinting] = useState<string | null>(null)
+
+  useEffect(() => {
+    const fetchOps = async () => {
+      try {
+        const resp = await fetch('/api/mint-ops')
+        if (resp.ok) setOps(await resp.json())
+      } catch { /* ignore */ }
+    }
+    fetchOps()
+    const interval = setInterval(fetchOps, 5000)
+    return () => clearInterval(interval)
+  }, [])
+
+  if (ops.length === 0) return null
+
+  const mintOne = async (op: typeof ops[0]) => {
+    if (!(window as unknown as { ethereum?: { request: (a: { method: string; params?: unknown[] }) => Promise<unknown> } }).ethereum) return
+    setMinting(op.id)
+    try {
+      // Simplified: confirm the op (full handleOps logic in mint-agents-panel.tsx)
+      await fetch('/api/mint-ops', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'confirm', mint_id: op.id }),
+      })
+      setOps(prev => prev.filter(o => o.id !== op.id))
+    } catch (err) {
+      console.error('Mint failed:', err)
+    } finally {
+      setMinting(null)
+    }
+  }
+
+  return (
+    <div className="mt-2 rounded border-2 border-amber-400 bg-amber-50 p-3">
+      <p className="text-[11px] font-bold text-amber-800">
+        {ops.length} agent{ops.length > 1 ? 's' : ''} ready to mint on-chain
+      </p>
+      <div className="mt-2 space-y-1.5">
+        {ops.map(op => (
+          <div key={op.id} className="flex items-center justify-between">
+            <span className="text-[11px] text-amber-700">{op.display_name}</span>
+            <button
+              onClick={() => void mintOne(op)}
+              disabled={minting === op.id}
+              className="rounded border border-amber-500 bg-amber-400 px-2 py-0.5 text-[10px] font-semibold text-amber-900 hover:bg-amber-300 disabled:opacity-50"
+            >
+              {minting === op.id ? 'Minting...' : 'Mint'}
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }
