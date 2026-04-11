@@ -221,36 +221,14 @@ function Sidebar({
           </span>
         </div>
         {onlineAgents.map((agent) => (
-          <div key={agent.agentId} className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <span className="h-2 w-2 flex-shrink-0 rounded-full bg-[#10B981]" />
-              <span className="font-mono text-[12px] font-medium text-text-primary">
-                {agent.displayName}
-              </span>
-            </div>
-            <span className="rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
-              Not minted
-            </span>
-          </div>
+          <AgentRow key={agent.agentId} agent={agent} online />
         ))}
         {offlineAgents.map((agent) => (
-          <div key={agent.agentId} className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <span className="h-2 w-2 flex-shrink-0 rounded-full bg-[#4D4D4D] ring-1 ring-inset ring-[#A8A29E]" />
-              <span className="font-mono text-[12px] font-medium text-[#4D4D4D]">
-                {agent.displayName}
-              </span>
-              <span className="text-[11px] text-[#A8A29E]">offline</span>
-            </div>
-            <span className="rounded border border-gray-300 bg-gray-50 px-1.5 py-0.5 text-[10px] font-medium text-gray-500">
-              Not minted
-            </span>
-          </div>
+          <AgentRow key={agent.agentId} agent={agent} online={false} />
         ))}
         {agents.length === 0 ? (
           <p className="text-[13px] text-text-secondary">No agents registered</p>
         ) : null}
-        <MintAgentsInline />
       </div>
     </aside>
   )
@@ -405,61 +383,81 @@ function RecipeStatusBadge({ status }: { status: RecipeStatusLabel }) {
   )
 }
 
-function MintAgentsInline() {
-  const [ops, setOps] = useState<Array<{ id: string; display_name: string; agent_name: string; userop: Record<string, string> }>>([])
-  const [minting, setMinting] = useState<string | null>(null)
+function AgentRow({ agent, online }: { agent: AgentPresence; online: boolean }) {
+  const [minting, setMinting] = useState(false)
+  const [minted, setMinted] = useState(false)
 
-  useEffect(() => {
-    const fetchOps = async () => {
-      try {
-        const resp = await fetch('/api/mint-ops')
-        if (resp.ok) setOps(await resp.json())
-      } catch { /* ignore */ }
+  const handleMint = async () => {
+    const eth = (window as unknown as { ethereum?: { request: (a: { method: string; params?: unknown[] }) => Promise<unknown> } }).ethereum
+    if (!eth) {
+      alert('Connect a wallet first (MetaMask or Vultisig)')
+      return
     }
-    fetchOps()
-    const interval = setInterval(fetchOps, 5000)
-    return () => clearInterval(interval)
-  }, [])
-
-  if (ops.length === 0) return null
-
-  const mintOne = async (op: typeof ops[0]) => {
-    if (!(window as unknown as { ethereum?: { request: (a: { method: string; params?: unknown[] }) => Promise<unknown> } }).ethereum) return
-    setMinting(op.id)
+    setMinting(true)
     try {
-      // Simplified: confirm the op (full handleOps logic in mint-agents-panel.tsx)
-      await fetch('/api/mint-ops', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'confirm', mint_id: op.id }),
+      const accounts = await eth.request({ method: 'eth_requestAccounts' }) as string[]
+      const from = accounts[0]
+
+      // Build register(agentURI) calldata
+      const agentURI = JSON.stringify({
+        type: 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1',
+        name: agent.displayName,
+        description: `${agent.displayName} on Cookrew`,
+        active: true,
+        services: [{ name: 'A2A', endpoint: `https://hub.cookrew.dev/a2a/${from}/${agent.agentId.split('@')[0]}` }],
       })
-      setOps(prev => prev.filter(o => o.id !== op.id))
+
+      // ERC-8004 Identity Registry
+      const registry = '0x556089008Fc0a60cD09390Eca93477ca254A5522'
+
+      // Encode register(string) — use viem
+      const { encodeFunctionData } = await import('viem')
+      const data = encodeFunctionData({
+        abi: [{ inputs: [{ name: 'agentURI', type: 'string' }], name: 'register', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'nonpayable', type: 'function' }],
+        functionName: 'register',
+        args: [agentURI],
+      })
+
+      // Direct call from human's EOA to registry
+      const txHash = await eth.request({
+        method: 'eth_sendTransaction',
+        params: [{ from, to: registry, data }],
+      })
+
+      console.log('Mint tx:', txHash)
+      setMinted(true)
     } catch (err) {
       console.error('Mint failed:', err)
     } finally {
-      setMinting(null)
+      setMinting(false)
     }
   }
 
+  const dotColor = online ? 'bg-[#10B981]' : 'bg-[#4D4D4D] ring-1 ring-inset ring-[#A8A29E]'
+  const nameColor = online ? 'text-text-primary' : 'text-[#4D4D4D]'
+
   return (
-    <div className="mt-2 rounded border-2 border-amber-400 bg-amber-50 p-3">
-      <p className="text-[11px] font-bold text-amber-800">
-        {ops.length} agent{ops.length > 1 ? 's' : ''} ready to mint on-chain
-      </p>
-      <div className="mt-2 space-y-1.5">
-        {ops.map(op => (
-          <div key={op.id} className="flex items-center justify-between">
-            <span className="text-[11px] text-amber-700">{op.display_name}</span>
-            <button
-              onClick={() => void mintOne(op)}
-              disabled={minting === op.id}
-              className="rounded border border-amber-500 bg-amber-400 px-2 py-0.5 text-[10px] font-semibold text-amber-900 hover:bg-amber-300 disabled:opacity-50"
-            >
-              {minting === op.id ? 'Minting...' : 'Mint'}
-            </button>
-          </div>
-        ))}
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-2.5">
+        <span className={`h-2 w-2 flex-shrink-0 rounded-full ${dotColor}`} />
+        <span className={`font-mono text-[12px] font-medium ${nameColor}`}>
+          {agent.displayName}
+        </span>
+        {!online && <span className="text-[11px] text-[#A8A29E]">offline</span>}
       </div>
+      {minted ? (
+        <span className="rounded border border-emerald-300 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
+          Minted ✓
+        </span>
+      ) : (
+        <button
+          onClick={() => void handleMint()}
+          disabled={minting}
+          className="rounded border border-amber-400 bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800 hover:bg-amber-200 disabled:opacity-50 transition-colors"
+        >
+          {minting ? 'Signing...' : 'Mint'}
+        </button>
+      )}
     </div>
   )
 }
