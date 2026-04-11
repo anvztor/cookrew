@@ -221,10 +221,10 @@ function Sidebar({
           </span>
         </div>
         {onlineAgents.map((agent) => (
-          <AgentRow key={agent.agentId} agent={agent} online />
+          <AgentRow key={agent.agentId} agent={agent} online ownerId={cookbook.ownerId} />
         ))}
         {offlineAgents.map((agent) => (
-          <AgentRow key={agent.agentId} agent={agent} online={false} />
+          <AgentRow key={agent.agentId} agent={agent} online={false} ownerId={cookbook.ownerId} />
         ))}
         {agents.length === 0 ? (
           <p className="text-[13px] text-text-secondary">No agents registered</p>
@@ -383,7 +383,7 @@ function RecipeStatusBadge({ status }: { status: RecipeStatusLabel }) {
   )
 }
 
-function AgentRow({ agent, online }: { agent: AgentPresence; online: boolean }) {
+function AgentRow({ agent, online, ownerId }: { agent: AgentPresence; online: boolean; ownerId: string }) {
   const [minting, setMinting] = useState(false)
   const [mintTx, setMintTx] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -398,14 +398,15 @@ function AgentRow({ agent, online }: { agent: AgentPresence; online: boolean }) 
     setMinting(true)
     try {
       const accounts = await eth.request({ method: 'eth_requestAccounts' }) as string[]
-      const from = accounts[0]
 
+      // Use cookbook owner_id for A2A endpoint (not wallet address)
+      const agentShortName = agent.agentId.split('@')[0]
       const agentURI = JSON.stringify({
         type: 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1',
         name: agent.displayName,
         description: `${agent.displayName} on Cookrew`,
         active: true,
-        services: [{ name: 'A2A', endpoint: `https://hub.cookrew.dev/a2a/${from}/${agent.agentId.split('@')[0]}` }],
+        services: [{ name: 'A2A', endpoint: `https://hub.cookrew.dev/a2a/${ownerId}/${agentShortName}` }],
       })
 
       const registry = '0x556089008Fc0a60cD09390Eca93477ca254A5522'
