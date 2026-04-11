@@ -5,14 +5,12 @@ import { useDeferredValue, useEffect, useState } from 'react'
 import {
   Coins,
   GitBranch,
-  LogOut,
   Search,
-  User,
   UserPlus,
   Users,
 } from 'lucide-react'
 import { getCookbookData } from '@/lib/api'
-import { useAuth } from '@/hooks/use-auth'
+import { useAuthContext } from '@/components/auth-provider'
 import { SessionKeyPanel } from '@/components/session-key-panel'
 import { MintAgentsPanel } from '@/components/mint-agents-panel'
 import type { CookbookData, CookbookGroup } from '@/types'
@@ -35,10 +33,7 @@ export function HomeScreen() {
   const [search, setSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState('All')
   const deferredSearch = useDeferredValue(search)
-  const { authenticated, loading: authLoading, walletAddress, accountId, username, needsUsername, login, logout, claimUsername } = useAuth()
-  const [usernameInput, setUsernameInput] = useState('')
-  const [usernameError, setUsernameError] = useState<string | null>(null)
-  const [claimingUsername, setClaimingUsername] = useState(false)
+  const { authenticated, walletAddress } = useAuthContext()
 
   useEffect(() => {
     let isMounted = true
@@ -54,58 +49,7 @@ export function HomeScreen() {
   const cookbooks = data?.cookbooks ?? []
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#FAF8F4] font-sans text-text-primary">
-      {/* Header */}
-      <header className="flex items-center justify-between border-b border-border-strong bg-bg-surface px-6 py-4">
-        <span className="text-[20px] font-extrabold tracking-[2px] text-text-primary">
-          COOKREW
-        </span>
-
-        <div className="flex items-center gap-2 rounded-[10px] border-[1.5px] border-border-strong bg-white px-3" style={{ width: 400, height: 40 }}>
-          <Search size={18} className="text-[#78716C]" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search projects..."
-            className="flex-1 bg-transparent text-[14px] text-text-primary outline-none placeholder:text-[#A8A29E]"
-          />
-        </div>
-
-        <div className="flex items-center gap-3">
-          {authenticated ? (
-            <>
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-primary">
-                <User size={16} className="text-text-primary" />
-              </div>
-              <span className="text-[14px] font-medium text-text-primary">
-                {username
-                  ? `@${username}`
-                  : walletAddress
-                    ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`
-                    : accountId?.slice(0, 12) ?? 'Account'}
-              </span>
-              <button
-                type="button"
-                onClick={() => void logout()}
-                className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-[#f0ece4] transition-colors"
-                title="Sign out"
-              >
-                <LogOut size={18} className="text-[#78716C]" />
-              </button>
-            </>
-          ) : (
-            <button
-              type="button"
-              onClick={login}
-              disabled={authLoading}
-              className="flex items-center gap-2 rounded-[10px] border-[1.5px] border-border-strong bg-accent-primary px-4 py-2 text-[14px] font-semibold text-text-primary transition-colors hover:bg-accent-primary-light disabled:opacity-50"
-            >
-              {authLoading ? 'Loading...' : 'Sign in'}
-            </button>
-          )}
-        </div>
-      </header>
-
+    <>
       {/* Hero section */}
       <section className="flex flex-col items-center gap-10 bg-[#FAF8F4] px-20 py-14">
         <div className="flex flex-col items-center gap-4">
@@ -151,7 +95,15 @@ export function HomeScreen() {
       <section className="flex flex-1 flex-col gap-6 px-20 py-8">
         <div className="flex items-center justify-between">
           <h2 className="text-[24px] font-bold text-text-primary">Explore Projects</h2>
-          <p className="text-[14px] text-[#78716C]">Discover projects with bounty, join and contribute</p>
+          <div className="flex items-center gap-2 rounded-[10px] border-[1.5px] border-border-strong bg-white px-3" style={{ width: 300, height: 36 }}>
+            <Search size={16} className="text-[#78716C]" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search projects..."
+              className="flex-1 bg-transparent text-[13px] text-text-primary outline-none placeholder:text-[#A8A29E]"
+            />
+          </div>
         </div>
 
         {/* Category pills */}
@@ -185,48 +137,7 @@ export function HomeScreen() {
           <MintAgentsPanel />
         </>
       )}
-
-      {/* Claim Username modal */}
-      {authenticated && needsUsername && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="w-full max-w-sm rounded-lg border-2 border-[var(--border-strong)] bg-[var(--bg-surface)] p-6 shadow-xl">
-            <h2 className="text-lg font-bold text-[var(--text-primary)]">Claim your username</h2>
-            <p className="mt-1 text-sm text-[var(--text-muted)]">
-              Choose a unique username for your agents and A2A identity.
-            </p>
-            <input
-              type="text"
-              value={usernameInput}
-              onChange={e => { setUsernameInput(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '')); setUsernameError(null) }}
-              placeholder="e.g. anvztor"
-              maxLength={20}
-              className="mt-3 w-full rounded-md border-2 border-[var(--border-subtle)] bg-white px-3 py-2 text-sm font-mono outline-none focus:border-[var(--accent-primary)]"
-            />
-            {usernameError && <p className="mt-1 text-xs text-red-600">{usernameError}</p>}
-            <p className="mt-1 text-[10px] text-[var(--text-muted)]">
-              3-20 characters, alphanumeric, dash, underscore. Cannot be changed.
-            </p>
-            <button
-              onClick={async () => {
-                if (usernameInput.length < 3) { setUsernameError('At least 3 characters'); return }
-                setClaimingUsername(true)
-                try {
-                  await claimUsername(usernameInput)
-                } catch (err) {
-                  setUsernameError(err instanceof Error ? err.message : 'Failed')
-                } finally {
-                  setClaimingUsername(false)
-                }
-              }}
-              disabled={claimingUsername || usernameInput.length < 3}
-              className="mt-3 w-full rounded-md border-2 border-[var(--border-strong)] bg-[var(--accent-primary)] px-4 py-2 text-sm font-semibold disabled:opacity-50"
-            >
-              {claimingUsername ? 'Claiming...' : 'Claim Username'}
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
+    </>
   )
 }
 

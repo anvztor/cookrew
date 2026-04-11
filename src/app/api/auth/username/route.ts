@@ -12,17 +12,43 @@ export async function POST(request: Request) {
     return NextResponse.json({ detail: 'Not logged in' }, { status: 401 })
   }
 
-  const body = await request.json()
-  const { username } = body as { username: string }
+  let body: { username?: string }
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ detail: 'Invalid request body' }, { status: 400 })
+  }
 
-  const resp = await fetch(`${KREW_AUTH_URL}/auth/username/set`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token, username }),
-    cache: 'no-store',
-  })
+  const { username } = body
+  if (!username) {
+    return NextResponse.json({ detail: 'Username is required' }, { status: 400 })
+  }
 
-  const data = await resp.json()
+  let resp: Response
+  try {
+    resp = await fetch(`${KREW_AUTH_URL}/auth/username/set`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, username }),
+      cache: 'no-store',
+    })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error'
+    return NextResponse.json(
+      { detail: `Cannot reach auth service: ${msg}` },
+      { status: 502 },
+    )
+  }
+
+  let data: Record<string, unknown>
+  try {
+    data = await resp.json()
+  } catch {
+    return NextResponse.json(
+      { detail: `Auth service returned ${resp.status} (non-JSON)` },
+      { status: resp.status >= 400 ? resp.status : 502 },
+    )
+  }
 
   if (!resp.ok) {
     return NextResponse.json(data, { status: resp.status })
@@ -30,7 +56,7 @@ export async function POST(request: Request) {
 
   // Update cookie with new JWT that includes username
   const response = NextResponse.json({ username: data.username })
-  response.cookies.set(COOKIE_NAME, data.token, {
+  response.cookies.set(COOKIE_NAME, data.token as string, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',

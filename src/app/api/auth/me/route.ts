@@ -3,6 +3,13 @@ import { NextResponse } from 'next/server'
 
 const COOKIE_NAME = 'krew_session'
 
+export async function DELETE() {
+  const cookieStore = await cookies()
+  const response = NextResponse.json({ ok: true })
+  cookieStore.delete(COOKIE_NAME)
+  return response
+}
+
 export async function GET() {
   const cookieStore = await cookies()
   const token = cookieStore.get(COOKIE_NAME)?.value
@@ -34,6 +41,7 @@ export async function GET() {
       account_id: payload.sub,
       wallet_address: payload.wallet ?? null,
       auth_method: payload.method ?? 'unknown',
+      username: payload.username ?? null,
     })
   } catch {
     const response = NextResponse.json({ authenticated: false }, { status: 401 })

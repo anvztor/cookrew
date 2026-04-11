@@ -76,11 +76,11 @@ export function CookbookDetailScreen({ cookbookId }: { cookbookId: string }) {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#FAF8F4] font-sans text-text-primary">
-      {/* Header */}
-      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border-strong bg-bg-surface px-5 py-4">
-        <h1 className="text-[22px] font-bold uppercase leading-none tracking-wide text-text-primary">
-          Cookrew / Cookbook
+    <>
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border-strong bg-bg-surface px-5 py-3">
+        <h1 className="text-[18px] font-bold text-text-primary">
+          Cookbook
         </h1>
 
         <div className="flex items-center gap-3">
@@ -106,7 +106,7 @@ export function CookbookDetailScreen({ cookbookId }: { cookbookId: string }) {
             Create Recipe
           </button>
         </div>
-      </header>
+      </div>
 
       {isLoading ? (
         <div className="p-6 text-sm text-text-secondary">Loading cookbook…</div>
@@ -156,7 +156,7 @@ export function CookbookDetailScreen({ cookbookId }: { cookbookId: string }) {
         onClose={() => setIsCreateOpen(false)}
         onCreated={handleCreated}
       />
-    </div>
+    </>
   )
 }
 
@@ -176,15 +176,7 @@ function Sidebar({
   useEffect(() => {
     fetch('/api/auth/me').then(r => r.ok ? r.json() : null).then(d => {
       if (d?.authenticated) {
-        // Decode username from JWT
-        try {
-          const cookie = document.cookie.split(';').find(c => c.trim().startsWith('krew_session='))
-          if (cookie) {
-            const token = cookie.split('=').slice(1).join('=')
-            const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
-            setSessionUsername(payload.username || null)
-          }
-        } catch { /* ignore */ }
+        setSessionUsername(d.username ?? null)
       }
     }).catch(() => {})
   }, [])

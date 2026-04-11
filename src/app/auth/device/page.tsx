@@ -1,10 +1,10 @@
 'use client'
 
-import { useAuth } from '@/hooks/use-auth'
+import { useAuthContext } from '@/components/auth-provider'
 import { useState } from 'react'
 
 export default function DeviceAuthPage() {
-  const { authenticated, walletAddress } = useAuth()
+  const { authenticated, walletAddress } = useAuthContext()
   const [code, setCode] = useState('')
   const [status, setStatus] = useState<'idle' | 'approving' | 'approved' | 'error'>('idle')
   const [error, setError] = useState<string | null>(null)

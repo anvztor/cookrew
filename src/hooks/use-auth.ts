@@ -36,17 +36,7 @@ export function useAuth() {
       const resp = await fetch('/api/auth/me')
       if (resp.ok) {
         const data = await resp.json()
-        // Extract username from JWT payload
-        let username: string | null = null
-        try {
-          const cookieStr = document.cookie
-          const match = cookieStr.split(';').find(c => c.trim().startsWith('krew_session='))
-          if (match) {
-            const token = match.split('=').slice(1).join('=')
-            const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
-            username = payload.username || null
-          }
-        } catch { /* ignore */ }
+        const username: string | null = data.username ?? null
 
         setState({
           authenticated: true,
@@ -93,7 +83,6 @@ export function useAuth() {
 
   const logout = useCallback(async () => {
     await fetch('/api/auth/me', { method: 'DELETE' }).catch(() => {})
-    document.cookie = 'krew_session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
     setState({ ...INITIAL_STATE, loading: false })
   }, [])
 
