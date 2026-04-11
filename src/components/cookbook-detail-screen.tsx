@@ -386,11 +386,13 @@ function RecipeStatusBadge({ status }: { status: RecipeStatusLabel }) {
 function AgentRow({ agent, online }: { agent: AgentPresence; online: boolean }) {
   const [minting, setMinting] = useState(false)
   const [minted, setMinted] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleMint = async () => {
+    setError(null)
     const eth = (window as unknown as { ethereum?: { request: (a: { method: string; params?: unknown[] }) => Promise<unknown> } }).ethereum
     if (!eth) {
-      alert('Connect a wallet first (MetaMask or Vultisig)')
+      setError('No wallet found. Install MetaMask or Vultisig extension.')
       return
     }
     setMinting(true)
@@ -427,7 +429,7 @@ function AgentRow({ agent, online }: { agent: AgentPresence; online: boolean }) 
       console.log('Mint tx:', txHash)
       setMinted(true)
     } catch (err) {
-      console.error('Mint failed:', err)
+      setError(err instanceof Error ? err.message : 'Mint failed')
     } finally {
       setMinting(false)
     }
@@ -437,26 +439,31 @@ function AgentRow({ agent, online }: { agent: AgentPresence; online: boolean }) 
   const nameColor = online ? 'text-text-primary' : 'text-[#4D4D4D]'
 
   return (
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-2.5">
-        <span className={`h-2 w-2 flex-shrink-0 rounded-full ${dotColor}`} />
-        <span className={`font-mono text-[12px] font-medium ${nameColor}`}>
-          {agent.displayName}
-        </span>
-        {!online && <span className="text-[11px] text-[#A8A29E]">offline</span>}
+    <div className="space-y-1">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <span className={`h-2 w-2 flex-shrink-0 rounded-full ${dotColor}`} />
+          <span className={`font-mono text-[12px] font-medium ${nameColor}`}>
+            {agent.displayName}
+          </span>
+          {!online && <span className="text-[11px] text-[#A8A29E]">offline</span>}
+        </div>
+        {minted ? (
+          <span className="rounded border border-emerald-300 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
+            Minted ✓
+          </span>
+        ) : (
+          <button
+            onClick={() => void handleMint()}
+            disabled={minting}
+            className="rounded border border-amber-400 bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-800 hover:bg-amber-200 disabled:opacity-50 transition-colors cursor-pointer"
+          >
+            {minting ? 'Signing...' : 'Mint'}
+          </button>
+        )}
       </div>
-      {minted ? (
-        <span className="rounded border border-emerald-300 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
-          Minted ✓
-        </span>
-      ) : (
-        <button
-          onClick={() => void handleMint()}
-          disabled={minting}
-          className="rounded border border-amber-400 bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800 hover:bg-amber-200 disabled:opacity-50 transition-colors"
-        >
-          {minting ? 'Signing...' : 'Mint'}
-        </button>
+      {error && (
+        <p className="text-[10px] text-red-600 pl-4">{error}</p>
       )}
     </div>
   )
