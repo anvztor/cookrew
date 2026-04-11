@@ -74,15 +74,10 @@ export function useAuth() {
   }, [])
 
   const claimUsername = useCallback(async (username: string) => {
-    // Get current token from cookie
-    const match = document.cookie.split(';').find(c => c.trim().startsWith('krew_session='))
-    if (!match) throw new Error('Not logged in')
-    const token = match.split('=').slice(1).join('=')
-
-    const resp = await fetch(`${KREW_AUTH_URL}/auth/username/set`, {
+    const resp = await fetch('/api/auth/username', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, username }),
+      body: JSON.stringify({ username }),
     })
 
     if (!resp.ok) {
@@ -91,8 +86,7 @@ export function useAuth() {
     }
 
     const data = await resp.json()
-    // Update cookie with new JWT that has username
-    document.cookie = `krew_session=${data.token}; path=/; max-age=86400; SameSite=Lax`
+    // Cookie updated server-side by the proxy route
     setState(s => ({ ...s, username: data.username, needsUsername: false }))
     return data.username
   }, [])
