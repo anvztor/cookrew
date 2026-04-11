@@ -440,15 +440,20 @@ function AgentList({ agents }: { agents: readonly AgentPresence[] }) {
       {online.length > 0 ? (
         <div className="space-y-2">
           {online.map((agent) => (
-            <div key={agent.agentId} className="flex items-center gap-2 border border-border-strong bg-bg-surface p-3">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 flex-shrink-0" />
-              <div className="min-w-0">
-                <p className="text-[13px] font-medium">{agent.displayName}</p>
-                <p className="tiny-copy">
-                  {agent.status === 'busy' ? 'Working' : 'Online'}
-                  {agent.currentTaskId ? ` on ${agent.currentTaskId}` : ''}
-                </p>
+            <div key={agent.agentId} className="flex items-center justify-between border border-border-strong bg-bg-surface p-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="h-2 w-2 rounded-full bg-emerald-500 flex-shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-[13px] font-medium">{agent.displayName}</p>
+                  <p className="tiny-copy">
+                    {agent.status === 'busy' ? 'Working' : 'Online'}
+                    {agent.currentTaskId ? ` on ${agent.currentTaskId}` : ''}
+                  </p>
+                </div>
               </div>
+              <span className="rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                Not minted
+              </span>
             </div>
           ))}
         </div>
@@ -458,6 +463,65 @@ function AgentList({ agents }: { agents: readonly AgentPresence[] }) {
       {offline.length > 0 ? (
         <p className="tiny-copy mt-2">{offline.length} offline</p>
       ) : null}
+      <MintAgentsInline />
     </>
+  )
+}
+
+function MintAgentsInline() {
+  const [ops, setOps] = useState<Array<{ id: string; display_name: string }>>([])
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    const fetchOps = async () => {
+      try {
+        const resp = await fetch('/api/mint-ops')
+        if (resp.ok) setOps(await resp.json())
+      } catch { /* ignore */ }
+    }
+    fetchOps()
+    const interval = setInterval(fetchOps, 5000)
+    return () => clearInterval(interval)
+  }, [])
+
+  if (ops.length === 0) return null
+
+  const mintAll = async () => {
+    if (!(window as any).ethereum) return
+    setLoading(true)
+    try {
+      const accounts = await (window as any).ethereum.request({ method: 'eth_requestAccounts' })
+      // For now, just confirm each op (actual handleOps call is in mint-agents-panel.tsx)
+      for (const op of ops) {
+        await fetch('/api/mint-ops', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'confirm', mint_id: op.id }),
+        })
+      }
+      setOps([])
+    } catch (err) {
+      console.error('Mint failed:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="mt-3 rounded border-2 border-amber-400 bg-amber-50 p-3">
+      <p className="text-[12px] font-bold text-amber-800">
+        {ops.length} agent{ops.length > 1 ? 's' : ''} ready to mint on-chain
+      </p>
+      <p className="text-[11px] text-amber-700 mt-1">
+        Mint ERC-8004 NFTs to register agents on GOAT Testnet3
+      </p>
+      <button
+        onClick={() => void mintAll()}
+        disabled={loading}
+        className="mt-2 w-full rounded border border-amber-500 bg-amber-400 px-3 py-1.5 text-[11px] font-semibold text-amber-900 hover:bg-amber-300 disabled:opacity-50"
+      >
+        {loading ? 'Minting...' : 'Mint with Wallet'}
+      </button>
+    </div>
   )
 }
