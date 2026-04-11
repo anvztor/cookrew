@@ -385,7 +385,7 @@ function RecipeStatusBadge({ status }: { status: RecipeStatusLabel }) {
 
 function AgentRow({ agent, online }: { agent: AgentPresence; online: boolean }) {
   const [minting, setMinting] = useState(false)
-  const [minted, setMinted] = useState(false)
+  const [mintTx, setMintTx] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const handleMint = async () => {
@@ -400,7 +400,6 @@ function AgentRow({ agent, online }: { agent: AgentPresence; online: boolean }) 
       const accounts = await eth.request({ method: 'eth_requestAccounts' }) as string[]
       const from = accounts[0]
 
-      // Build register(agentURI) calldata
       const agentURI = JSON.stringify({
         type: 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1',
         name: agent.displayName,
@@ -409,10 +408,7 @@ function AgentRow({ agent, online }: { agent: AgentPresence; online: boolean }) 
         services: [{ name: 'A2A', endpoint: `https://hub.cookrew.dev/a2a/${from}/${agent.agentId.split('@')[0]}` }],
       })
 
-      // ERC-8004 Identity Registry
       const registry = '0x556089008Fc0a60cD09390Eca93477ca254A5522'
-
-      // Encode register(string) — use viem
       const { encodeFunctionData } = await import('viem')
       const data = encodeFunctionData({
         abi: [{ inputs: [{ name: 'agentURI', type: 'string' }], name: 'register', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'nonpayable', type: 'function' }],
@@ -420,14 +416,12 @@ function AgentRow({ agent, online }: { agent: AgentPresence; online: boolean }) 
         args: [agentURI],
       })
 
-      // Direct call from human's EOA to registry
       const txHash = await eth.request({
         method: 'eth_sendTransaction',
         params: [{ from, to: registry, data }],
-      })
+      }) as string
 
-      console.log('Mint tx:', txHash)
-      setMinted(true)
+      setMintTx(txHash)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Mint failed')
     } finally {
@@ -439,7 +433,7 @@ function AgentRow({ agent, online }: { agent: AgentPresence; online: boolean }) 
   const nameColor = online ? 'text-text-primary' : 'text-[#4D4D4D]'
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-1.5">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <span className={`h-2 w-2 flex-shrink-0 rounded-full ${dotColor}`} />
@@ -448,10 +442,15 @@ function AgentRow({ agent, online }: { agent: AgentPresence; online: boolean }) 
           </span>
           {!online && <span className="text-[11px] text-[#A8A29E]">offline</span>}
         </div>
-        {minted ? (
-          <span className="rounded border border-emerald-300 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
+        {mintTx ? (
+          <a
+            href={`https://explorer.testnet3.goat.network/tx/${mintTx}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded border border-emerald-300 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 hover:bg-emerald-100 transition-colors"
+          >
             Minted ✓
-          </span>
+          </a>
         ) : (
           <button
             onClick={() => void handleMint()}
@@ -462,6 +461,26 @@ function AgentRow({ agent, online }: { agent: AgentPresence; online: boolean }) 
           </button>
         )}
       </div>
+      {mintTx && (
+        <a
+          href={`https://explorer.testnet3.goat.network/tx/${mintTx}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="ml-4 flex items-center gap-2 rounded-lg border border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50 p-2.5 hover:border-emerald-300 transition-colors"
+        >
+          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-emerald-100 text-emerald-600 text-[14px] font-bold">
+            NFT
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-semibold text-emerald-800">{agent.displayName}</p>
+            <p className="text-[10px] text-emerald-600 font-mono truncate">
+              {mintTx.slice(0, 10)}...{mintTx.slice(-8)}
+            </p>
+            <p className="text-[9px] text-emerald-500">ERC-8004 on GOAT Testnet3</p>
+          </div>
+          <span className="text-[10px] text-emerald-400">↗</span>
+        </a>
+      )}
       {error && (
         <p className="text-[10px] text-red-600 pl-4">{error}</p>
       )}
