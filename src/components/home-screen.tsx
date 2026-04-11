@@ -14,6 +14,7 @@ import {
 import { getCookbookData } from '@/lib/api'
 import { useAuth } from '@/hooks/use-auth'
 import { SessionKeyPanel } from '@/components/session-key-panel'
+import { MintAgentsPanel } from '@/components/mint-agents-panel'
 import type { CookbookData, CookbookGroup } from '@/types'
 
 const CATEGORIES = ['All', 'Frontend', 'Backend', 'DevOps', 'AI/ML', 'Docs', 'Testing'] as const
@@ -174,7 +175,10 @@ export function HomeScreen() {
 
       {/* Session key approval panel (floating, bottom-right) */}
       {authenticated && (
-        <SessionKeyPanel smartAccountAddress={walletAddress} />
+        <>
+          <SessionKeyPanel smartAccountAddress={walletAddress} />
+          <MintAgentsPanel />
+        </>
       )}
     </div>
   )
