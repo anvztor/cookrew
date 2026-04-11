@@ -171,6 +171,24 @@ function Sidebar({
   members: readonly RecipeMember[]
   agents: readonly AgentPresence[]
 }) {
+  const [sessionUsername, setSessionUsername] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch('/api/auth/me').then(r => r.ok ? r.json() : null).then(d => {
+      if (d?.authenticated) {
+        // Decode username from JWT
+        try {
+          const cookie = document.cookie.split(';').find(c => c.trim().startsWith('krew_session='))
+          if (cookie) {
+            const token = cookie.split('=').slice(1).join('=')
+            const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
+            setSessionUsername(payload.username || null)
+          }
+        } catch { /* ignore */ }
+      }
+    }).catch(() => {})
+  }, [])
+
   const onlineAgents = agents.filter((a) => a.status !== 'offline')
   const offlineAgents = agents.filter((a) => a.status === 'offline')
 
@@ -221,10 +239,10 @@ function Sidebar({
           </span>
         </div>
         {onlineAgents.map((agent) => (
-          <AgentRow key={agent.agentId} agent={agent} online ownerId={cookbook.ownerId} />
+          <AgentRow key={agent.agentId} agent={agent} online sessionUsername={sessionUsername} />
         ))}
         {offlineAgents.map((agent) => (
-          <AgentRow key={agent.agentId} agent={agent} online={false} ownerId={cookbook.ownerId} />
+          <AgentRow key={agent.agentId} agent={agent} online={false} sessionUsername={sessionUsername} />
         ))}
         {agents.length === 0 ? (
           <p className="text-[13px] text-text-secondary">No agents registered</p>
@@ -383,7 +401,9 @@ function RecipeStatusBadge({ status }: { status: RecipeStatusLabel }) {
   )
 }
 
-function AgentRow({ agent, online, ownerId }: { agent: AgentPresence; online: boolean; ownerId: string }) {
+function AgentRow({ agent, online, sessionUsername }: { agent: AgentPresence; online: boolean; sessionUsername: string | null }) {
+  const isMyAgent = sessionUsername != null && agent.ownerUsername === sessionUsername
+  const agentOwner = agent.ownerUsername || 'unknown'
   const [minting, setMinting] = useState(false)
   const [mintTx, setMintTx] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -406,7 +426,7 @@ function AgentRow({ agent, online, ownerId }: { agent: AgentPresence; online: bo
         name: agent.displayName,
         description: `${agent.displayName} on Cookrew`,
         active: true,
-        services: [{ name: 'A2A', endpoint: `https://hub.cookrew.dev/a2a/${ownerId}/${agentShortName}` }],
+        services: [{ name: 'A2A', endpoint: `https://hub.cookrew.dev/a2a/${agentOwner}/${agentShortName}` }],
       })
 
       const registry = '0x556089008Fc0a60cD09390Eca93477ca254A5522'
@@ -452,7 +472,7 @@ function AgentRow({ agent, online, ownerId }: { agent: AgentPresence; online: bo
           >
             Minted ✓
           </a>
-        ) : (
+        ) : isMyAgent ? (
           <button
             onClick={() => void handleMint()}
             disabled={minting}
@@ -460,6 +480,8 @@ function AgentRow({ agent, online, ownerId }: { agent: AgentPresence; online: bo
           >
             {minting ? 'Signing...' : 'Mint'}
           </button>
+        ) : (
+          <span className="text-[10px] text-[#A8A29E]">@{agentOwner}</span>
         )}
       </div>
       {mintTx && (

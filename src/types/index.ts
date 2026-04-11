@@ -125,6 +125,7 @@ export interface AgentPresence {
   readonly status: AgentStatus
   readonly lastHeartbeatAt: string
   readonly currentTaskId: string | null
+  readonly ownerUsername: string | null
 }
 
 export interface Bundle {

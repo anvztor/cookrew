@@ -35,7 +35,10 @@ export function HomeScreen() {
   const [search, setSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState('All')
   const deferredSearch = useDeferredValue(search)
-  const { authenticated, loading: authLoading, walletAddress, accountId, login, logout } = useAuth()
+  const { authenticated, loading: authLoading, walletAddress, accountId, username, needsUsername, login, logout, claimUsername } = useAuth()
+  const [usernameInput, setUsernameInput] = useState('')
+  const [usernameError, setUsernameError] = useState<string | null>(null)
+  const [claimingUsername, setClaimingUsername] = useState(false)
 
   useEffect(() => {
     let isMounted = true
@@ -75,9 +78,11 @@ export function HomeScreen() {
                 <User size={16} className="text-text-primary" />
               </div>
               <span className="text-[14px] font-medium text-text-primary">
-                {walletAddress
-                  ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`
-                  : accountId?.slice(0, 12) ?? 'Account'}
+                {username
+                  ? `@${username}`
+                  : walletAddress
+                    ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`
+                    : accountId?.slice(0, 12) ?? 'Account'}
               </span>
               <button
                 type="button"
@@ -179,6 +184,47 @@ export function HomeScreen() {
           <SessionKeyPanel smartAccountAddress={walletAddress} />
           <MintAgentsPanel />
         </>
+      )}
+
+      {/* Claim Username modal */}
+      {authenticated && needsUsername && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+          <div className="w-full max-w-sm rounded-lg border-2 border-[var(--border-strong)] bg-[var(--bg-surface)] p-6 shadow-xl">
+            <h2 className="text-lg font-bold text-[var(--text-primary)]">Claim your username</h2>
+            <p className="mt-1 text-sm text-[var(--text-muted)]">
+              Choose a unique username for your agents and A2A identity.
+            </p>
+            <input
+              type="text"
+              value={usernameInput}
+              onChange={e => { setUsernameInput(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '')); setUsernameError(null) }}
+              placeholder="e.g. anvztor"
+              maxLength={20}
+              className="mt-3 w-full rounded-md border-2 border-[var(--border-subtle)] bg-white px-3 py-2 text-sm font-mono outline-none focus:border-[var(--accent-primary)]"
+            />
+            {usernameError && <p className="mt-1 text-xs text-red-600">{usernameError}</p>}
+            <p className="mt-1 text-[10px] text-[var(--text-muted)]">
+              3-20 characters, alphanumeric, dash, underscore. Cannot be changed.
+            </p>
+            <button
+              onClick={async () => {
+                if (usernameInput.length < 3) { setUsernameError('At least 3 characters'); return }
+                setClaimingUsername(true)
+                try {
+                  await claimUsername(usernameInput)
+                } catch (err) {
+                  setUsernameError(err instanceof Error ? err.message : 'Failed')
+                } finally {
+                  setClaimingUsername(false)
+                }
+              }}
+              disabled={claimingUsername || usernameInput.length < 3}
+              className="mt-3 w-full rounded-md border-2 border-[var(--border-strong)] bg-[var(--accent-primary)] px-4 py-2 text-sm font-semibold disabled:opacity-50"
+            >
+              {claimingUsername ? 'Claiming...' : 'Claim Username'}
+            </button>
+          </div>
+        </div>
       )}
     </div>
   )
