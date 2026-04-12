@@ -81,6 +81,9 @@ interface RawAgentPresence {
   status: 'online' | 'offline' | 'busy'
   last_heartbeat_at: string
   current_task_id: string | null
+  owner_username: string | null
+  mint_tx_hash: string | null
+  mint_token_id: number | null
 }
 
 interface RawBundle {
@@ -333,6 +336,9 @@ function normalizeAgent(agent: RawAgentPresence) {
     status: agent.status,
     lastHeartbeatAt: agent.last_heartbeat_at,
     currentTaskId: agent.current_task_id,
+    ownerUsername: agent.owner_username ?? null,
+    mintTxHash: agent.mint_tx_hash ?? null,
+    mintTokenId: agent.mint_token_id ?? null,
   } as const
 }
 

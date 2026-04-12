@@ -126,6 +126,8 @@ export interface AgentPresence {
   readonly lastHeartbeatAt: string
   readonly currentTaskId: string | null
   readonly ownerUsername: string | null
+  readonly mintTxHash: string | null
+  readonly mintTokenId: number | null
 }
 
 export interface Bundle {

@@ -397,8 +397,11 @@ function AgentRow({ agent, online, sessionUsername }: { agent: AgentPresence; on
   const isMyAgent = sessionUsername != null && agent.ownerUsername === sessionUsername
   const agentOwner = agent.ownerUsername || 'unknown'
   const [minting, setMinting] = useState(false)
-  const [mintTx, setMintTx] = useState<string | null>(null)
+  const [mintTx, setMintTx] = useState<string | null>(agent.mintTxHash)
+  const [mintTokenId, setMintTokenId] = useState<number | null>(agent.mintTokenId)
   const [error, setError] = useState<string | null>(null)
+
+  const isMinted = mintTx != null
 
   const handleMint = async () => {
     setError(null)
@@ -410,8 +413,8 @@ function AgentRow({ agent, online, sessionUsername }: { agent: AgentPresence; on
     setMinting(true)
     try {
       const accounts = await eth.request({ method: 'eth_requestAccounts' }) as string[]
+      const from = accounts[0]
 
-      // Use cookbook owner_id for A2A endpoint (not wallet address)
       const agentShortName = agent.agentId.split('@')[0]
       const agentURI = JSON.stringify({
         type: 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1',
@@ -435,6 +438,15 @@ function AgentRow({ agent, online, sessionUsername }: { agent: AgentPresence; on
       }) as string
 
       setMintTx(txHash)
+
+      // Persist mint status to krewhub
+      try {
+        await fetch(`/api/cookbooks/${agent.cookbookId}/agents/${encodeURIComponent(agent.agentId)}/mint`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tx_hash: txHash }),
+        })
+      } catch { /* best-effort persist */ }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Mint failed')
     } finally {
@@ -453,30 +465,36 @@ function AgentRow({ agent, online, sessionUsername }: { agent: AgentPresence; on
           <span className={`font-mono text-[12px] font-medium ${nameColor}`}>
             {agent.displayName}
           </span>
+          <span className="text-[10px] text-[#A8A29E]">@{agentOwner}</span>
           {!online && <span className="text-[11px] text-[#A8A29E]">offline</span>}
         </div>
-        {mintTx ? (
-          <a
-            href={`https://explorer.testnet3.goat.network/tx/${mintTx}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="rounded border border-emerald-300 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 hover:bg-emerald-100 transition-colors"
-          >
-            Minted ✓
-          </a>
-        ) : isMyAgent ? (
-          <button
-            onClick={() => void handleMint()}
-            disabled={minting}
-            className="rounded border border-amber-400 bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-800 hover:bg-amber-200 disabled:opacity-50 transition-colors cursor-pointer"
-          >
-            {minting ? 'Signing...' : 'Mint'}
-          </button>
-        ) : (
-          <span className="text-[10px] text-[#A8A29E]">@{agentOwner}</span>
-        )}
+        <div className="flex items-center gap-2">
+          {isMinted ? (
+            <a
+              href={`https://explorer.testnet3.goat.network/tx/${mintTx}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded border border-emerald-300 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 hover:bg-emerald-100 transition-colors"
+            >
+              ERC-8004 {mintTokenId != null ? `#${mintTokenId}` : '✓'}
+            </a>
+          ) : isMyAgent ? (
+            <button
+              type="button"
+              onClick={() => void handleMint()}
+              disabled={minting}
+              className="rounded border border-amber-400 bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-800 hover:bg-amber-200 disabled:opacity-50 transition-colors cursor-pointer"
+            >
+              {minting ? 'Signing...' : 'Mint ERC-8004'}
+            </button>
+          ) : (
+            <span className="rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] text-gray-400">
+              not minted
+            </span>
+          )}
+        </div>
       </div>
-      {mintTx && (
+      {isMinted && (
         <a
           href={`https://explorer.testnet3.goat.network/tx/${mintTx}`}
           target="_blank"
