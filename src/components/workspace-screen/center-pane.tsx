@@ -289,11 +289,9 @@ export function WorkspaceCenterPane({
                 <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#57534E]">
                   Requested By
                 </span>
-                <input
-                  value={requestedBy}
-                  onChange={(event) => setRequestedBy(event.target.value)}
-                  className="border border-[#2D2A20] bg-[#FAF8F4] px-3 py-2 text-[13px] text-[#2D2A20] outline-none"
-                />
+                <div className="border border-[#E7E5E4] bg-[#FAF8F4] px-3 py-2 text-[13px] text-[#57534E]">
+                  @{requestedBy}
+                </div>
               </label>
 
               <label className="flex flex-col gap-1.5">

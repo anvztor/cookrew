@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import { AppShell } from '@/components/app-shell'
 import './globals.css'
@@ -11,6 +11,11 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: 'Cookrew',
   description: 'Collaborative agent orchestration workspace',
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
 }
 
 export default function RootLayout({

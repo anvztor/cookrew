@@ -21,6 +21,7 @@ export type EventType =
   | 'prompt'
   | 'plan'
   | 'task_claimed'
+  | 'task_working'
   | 'milestone'
   | 'fact_added'
   | 'code_pushed'

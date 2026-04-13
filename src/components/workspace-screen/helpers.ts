@@ -236,6 +236,15 @@ export function getEventPresentation(event: Event): EventPresentation {
     }
   }
 
+  if (event.type === 'task_working') {
+    return {
+      label: 'task:working',
+      tone: 'blue',
+      icon: PlayCircle,
+      bodyClassName: 'text-[#57534E]',
+    }
+  }
+
   if (event.type === 'milestone' && event.actorType === 'agent') {
     return {
       label: 'agent:output',

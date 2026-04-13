@@ -78,7 +78,7 @@ export function CookbookDetailScreen({ cookbookId }: { cookbookId: string }) {
   return (
     <>
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border-strong bg-bg-surface px-5 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4 border-b border-border-strong bg-bg-surface px-4 sm:px-5 py-3">
         <h1 className="text-[18px] font-bold text-text-primary">
           Cookbook
         </h1>
@@ -93,7 +93,7 @@ export function CookbookDetailScreen({ cookbookId }: { cookbookId: string }) {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search recipes..."
-              className="w-[240px] bg-transparent px-3 py-2.5 text-[13px] text-text-primary outline-none"
+              className="w-full sm:w-[240px] bg-transparent px-3 py-2.5 text-[13px] text-text-primary outline-none"
             />
           </div>
 
@@ -113,8 +113,8 @@ export function CookbookDetailScreen({ cookbookId }: { cookbookId: string }) {
       ) : error ? (
         <div className="p-6 text-sm font-medium text-rose-600">{error}</div>
       ) : data ? (
-        <div className="flex flex-1 overflow-hidden">
-          {/* Sidebar — 300px, matching design */}
+        <div className="flex flex-1 flex-col lg:flex-row overflow-hidden">
+          {/* Sidebar — full-width on mobile, 300px on desktop */}
           <Sidebar
             cookbook={data.cookbook}
             members={data.members}
@@ -122,11 +122,11 @@ export function CookbookDetailScreen({ cookbookId }: { cookbookId: string }) {
           />
 
           {/* Main content */}
-          <main className="flex flex-1 flex-col gap-5 overflow-y-auto bg-[#FAF8F4] p-6">
+          <main className="flex flex-1 flex-col gap-4 sm:gap-5 overflow-y-auto bg-[#FAF8F4] p-4 sm:p-6">
             {/* Title row */}
-            <div className="flex items-start justify-between">
+            <div className="flex flex-col sm:flex-row items-start justify-between gap-3 sm:gap-0">
               <div className="flex flex-col gap-1">
-                <h2 className="text-[26px] font-bold text-text-primary">Recipes</h2>
+                <h2 className="text-[22px] sm:text-[26px] font-bold text-text-primary">Recipes</h2>
                 <p className="text-[14px] text-text-secondary">
                   {data.recipes.length} recipe{data.recipes.length === 1 ? '' : 's'} in this cookbook
                 </p>
@@ -195,7 +195,7 @@ function Sidebar({
   }
 
   return (
-    <aside className="flex w-[300px] flex-shrink-0 flex-col gap-5 overflow-y-auto border-r border-border-strong bg-bg-surface p-5">
+    <aside className="flex w-full lg:w-[300px] flex-shrink-0 flex-col gap-4 sm:gap-5 overflow-y-auto border-b lg:border-b-0 lg:border-r border-border-strong bg-bg-surface p-4 sm:p-5">
       {/* Cookbook meta */}
       <div className="flex flex-col gap-3 border border-border-strong bg-bg-surface p-4">
         <p className="text-[16px] font-bold text-text-primary">{cookbook.name}</p>
@@ -286,7 +286,8 @@ function RecipeTable({ recipes }: { recipes: readonly RecipeSummary[] }) {
   }
 
   return (
-    <div className="flex flex-col overflow-hidden border border-border-strong bg-bg-surface">
+    <div className="overflow-x-auto border border-border-strong bg-bg-surface">
+      <div className="flex min-w-[700px] flex-col">
       {/* Table header */}
       <div className="flex items-center border-b border-border-strong bg-[#FAF8F4] px-4 py-3">
         <span className="w-[320px] text-[12px] font-bold text-text-secondary">Name</span>
@@ -304,6 +305,7 @@ function RecipeTable({ recipes }: { recipes: readonly RecipeSummary[] }) {
           isLast={index === recipes.length - 1}
         />
       ))}
+      </div>
     </div>
   )
 }

@@ -1,17 +1,21 @@
 'use client'
 
+import { Bot } from 'lucide-react'
 import { useCallback, useDeferredValue, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Group as PanelGroup, Panel } from 'react-resizable-panels'
 import { createBundle, getWorkspaceData, rerunBundle } from '@/lib/api'
+import { useAuthContext } from '@/components/auth-provider'
 import { useWatch } from '@/hooks/use-watch'
 import type { WorkspaceData } from '@/types'
 import {
+  agentTone,
   buildDependencyRows,
   countArtifactPaths,
   getCapabilityRows,
   matchesQuery,
   pickTargetAgent,
+  readAgentActivity,
 } from './helpers'
 import { WorkspaceCenterPane } from './center-pane'
 import { WorkspaceHeader } from './header'
@@ -24,13 +28,14 @@ export function WorkspaceScreen({ recipeId }: WorkspaceScreenProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const bundleIdFromUrl = searchParams.get('bundle')
+  const { authenticated, username, accountId, login } = useAuthContext()
 
   const [data, setData] = useState<WorkspaceData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [workspaceSearch, setWorkspaceSearch] = useState('')
   const [prompt, setPrompt] = useState('')
-  const [requestedBy, setRequestedBy] = useState('cookrew@local')
+  const requestedBy = username || accountId || 'anonymous'
   const [taskSeedText, setTaskSeedText] = useState('')
   const [showTaskSeeds, setShowTaskSeeds] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -165,6 +170,11 @@ export function WorkspaceScreen({ recipeId }: WorkspaceScreenProps) {
     (selectedBundle?.bundle.blockedReason ? 1 : 0)
 
   async function handleBundleCreate() {
+    if (!authenticated) {
+      login()
+      return
+    }
+
     if (!prompt.trim()) {
       setError('Bundle prompt is required.')
       return
@@ -180,7 +190,7 @@ export function WorkspaceScreen({ recipeId }: WorkspaceScreenProps) {
         .filter(Boolean)
       const result = await createBundle(recipeId, {
         prompt: prompt.trim(),
-        requestedBy: requestedBy.trim() || 'cookrew@local',
+        requestedBy,
         taskTitles,
       })
 
@@ -306,7 +316,7 @@ export function WorkspaceScreen({ recipeId }: WorkspaceScreenProps) {
               selectedAgent={selectedAgent}
               selectedBundle={selectedBundle}
               setPrompt={setPrompt}
-              setRequestedBy={setRequestedBy}
+              setRequestedBy={() => {}}
               setTaskSeedText={setTaskSeedText}
               showTaskSeeds={showTaskSeeds}
               taskSeedText={taskSeedText}
@@ -340,50 +350,208 @@ export function WorkspaceScreen({ recipeId }: WorkspaceScreenProps) {
         </PanelGroup>
       </div>
 
-      <div className="flex flex-1 flex-col overflow-y-auto lg:hidden">
-        <WorkspaceLeftPane
-          bundles={allBundles}
-          capabilityRows={capabilityRows}
-          data={data}
-          mobile
-          onSelectBundle={handleSelectBundle}
-          onCancelBundle={handleCancelBundle}
-          participantCount={participantCount}
-          selectedBundleId={selectedBundleId}
-        />
-        <WorkspaceCenterPane
-          events={visibleEvents}
-          hasQuery={query.length > 0}
-          isSubmitting={isSubmitting}
-          mobile
-          onCreateBundle={handleBundleCreate}
-          onToggleTaskSeeds={() => setShowTaskSeeds((current) => !current)}
-          prompt={prompt}
-          requestedBy={requestedBy}
-          selectedAgent={selectedAgent}
-          selectedBundle={selectedBundle}
-          setPrompt={setPrompt}
-          setRequestedBy={setRequestedBy}
-          setTaskSeedText={setTaskSeedText}
-          showTaskSeeds={showTaskSeeds}
-          taskSeedText={taskSeedText}
-        />
-        <WorkspaceRightPane
-          allDependencies={allDependencies}
-          artifactCount={artifactCount}
-          blockedTaskCount={blockedTaskCount}
-          canRerun={canRerun}
-          bundleSequence={bundleSequence}
-          completedTaskCount={completedTaskCount}
-          isRerunning={isRerunning}
-          mobile
-          onRerunAction={handleRerunAction}
-          reviewHref={reviewHref}
-          selectedBundle={selectedBundle}
-          visibleDependencies={visibleDependencies}
-          visibleTasks={visibleTasks}
-          warningCount={warningCount}
-        />
+      <MobileWorkspace
+        data={data}
+        allBundles={allBundles}
+        capabilityRows={capabilityRows}
+        selectedBundleId={selectedBundleId}
+        participantCount={participantCount}
+        onSelectBundle={handleSelectBundle}
+        onCancelBundle={handleCancelBundle}
+        visibleEvents={visibleEvents}
+        query={query}
+        isSubmitting={isSubmitting}
+        onCreateBundle={handleBundleCreate}
+        onToggleTaskSeeds={() => setShowTaskSeeds((current) => !current)}
+        prompt={prompt}
+        requestedBy={requestedBy}
+        selectedAgent={selectedAgent}
+        selectedBundle={selectedBundle}
+        setPrompt={setPrompt}
+        setRequestedBy={() => {}}
+        setTaskSeedText={setTaskSeedText}
+        showTaskSeeds={showTaskSeeds}
+        taskSeedText={taskSeedText}
+        allDependencies={allDependencies}
+        artifactCount={artifactCount}
+        blockedTaskCount={blockedTaskCount}
+        canRerun={canRerun}
+        bundleSequence={bundleSequence}
+        completedTaskCount={completedTaskCount}
+        isRerunning={isRerunning}
+        onRerunAction={handleRerunAction}
+        reviewHref={reviewHref}
+        visibleDependencies={visibleDependencies}
+        visibleTasks={visibleTasks}
+        warningCount={warningCount}
+      />
+    </div>
+  )
+}
+
+/* ── Mobile workspace — tabbed layout with agent status bar ── */
+
+type MobileTab = 'events' | 'tasks' | 'info'
+
+function MobileWorkspace(props: {
+  data: WorkspaceData
+  allBundles: WorkspaceData['bundles']
+  capabilityRows: ReturnType<typeof getCapabilityRows>
+  selectedBundleId: string | null
+  participantCount: number
+  onSelectBundle: (id: string) => void
+  onCancelBundle: (id: string) => void
+  visibleEvents: Parameters<typeof WorkspaceCenterPane>[0]['events']
+  query: string
+  isSubmitting: boolean
+  onCreateBundle: () => void
+  onToggleTaskSeeds: () => void
+  prompt: string
+  requestedBy: string
+  selectedAgent: Parameters<typeof WorkspaceCenterPane>[0]['selectedAgent']
+  selectedBundle: Parameters<typeof WorkspaceCenterPane>[0]['selectedBundle']
+  setPrompt: (v: string) => void
+  setRequestedBy: (v: string) => void
+  setTaskSeedText: (v: string) => void
+  showTaskSeeds: boolean
+  taskSeedText: string
+  allDependencies: Parameters<typeof WorkspaceRightPane>[0]['allDependencies']
+  artifactCount: number
+  blockedTaskCount: number
+  canRerun: boolean
+  bundleSequence: number
+  completedTaskCount: number
+  isRerunning: boolean
+  onRerunAction: () => void
+  reviewHref: string | null
+  visibleDependencies: Parameters<typeof WorkspaceRightPane>[0]['visibleDependencies']
+  visibleTasks: Parameters<typeof WorkspaceRightPane>[0]['visibleTasks']
+  warningCount: number
+}) {
+  const [tab, setTab] = useState<MobileTab>('events')
+
+  const tabs: { key: MobileTab; label: string }[] = [
+    { key: 'events', label: 'Events' },
+    { key: 'tasks', label: `Tasks (${props.visibleTasks.length})` },
+    { key: 'info', label: 'Info' },
+  ]
+
+  return (
+    <div className="flex flex-1 flex-col overflow-hidden lg:hidden">
+      {/* Compact agent status bar */}
+      <div className="flex items-center gap-3 overflow-x-auto border-b border-[#2D2A20] bg-[#FFFEF5] px-3 py-2">
+        <span className="flex-shrink-0 text-[10px] font-bold uppercase tracking-wider text-[#57534E]">
+          Agents
+        </span>
+        {props.data.agents.map((agent) => {
+          const tone = agentTone(agent.status)
+          const activity = readAgentActivity(agent)
+          const dotColor = agent.status === 'online' ? 'bg-[#10B981]' : agent.status === 'busy' ? 'bg-[#9333EA]' : 'bg-[#A8A29E]'
+          return (
+            <div key={agent.agentId} className="flex flex-shrink-0 items-center gap-1.5 rounded-full border border-[#E7E5E4] bg-white px-2.5 py-1">
+              <span className={`h-2 w-2 rounded-full ${dotColor}`} />
+              <Bot size={12} className={tone.iconClassName} />
+              <span className="text-[11px] font-medium text-[#2D2A20]">{agent.displayName}</span>
+              <span className="text-[10px] text-[#57534E]">{activity}</span>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Bundle status bar */}
+      {props.selectedBundle && (
+        <div className="flex items-center justify-between border-b border-[#2D2A20] bg-[#FFFEF5] px-3 py-2">
+          <div className="flex items-center gap-2">
+            <span className="text-[12px] font-semibold text-[#2D2A20]">
+              Bundle #{props.bundleSequence}
+            </span>
+            <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+              props.selectedBundle.bundle.status === 'cooked' ? 'bg-emerald-100 text-emerald-800' :
+              props.selectedBundle.bundle.status === 'blocked' ? 'bg-amber-100 text-amber-800' :
+              props.selectedBundle.bundle.status === 'claimed' ? 'bg-violet-100 text-violet-800' :
+              'bg-gray-100 text-gray-700'
+            }`}>
+              {props.selectedBundle.bundle.status}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 text-[11px] text-[#57534E]">
+            <span>{props.completedTaskCount}/{props.visibleTasks.length} done</span>
+            {props.warningCount > 0 && (
+              <span className="text-amber-600">{props.warningCount} warnings</span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Tabs */}
+      <div className="flex border-b border-[#2D2A20] bg-[#FFFEF5]">
+        {tabs.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setTab(t.key)}
+            className={`flex-1 py-2.5 text-[12px] font-semibold transition-colors ${
+              tab === t.key
+                ? 'border-b-2 border-[#9B8ACB] text-[#2D2A20]'
+                : 'text-[#57534E]'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab content */}
+      <div className="flex-1 overflow-y-auto">
+        {tab === 'events' && (
+          <WorkspaceCenterPane
+            events={props.visibleEvents}
+            hasQuery={props.query.length > 0}
+            isSubmitting={props.isSubmitting}
+            mobile
+            onCreateBundle={props.onCreateBundle}
+            onToggleTaskSeeds={props.onToggleTaskSeeds}
+            prompt={props.prompt}
+            requestedBy={props.requestedBy}
+            selectedAgent={props.selectedAgent}
+            selectedBundle={props.selectedBundle}
+            setPrompt={props.setPrompt}
+            setRequestedBy={props.setRequestedBy}
+            setTaskSeedText={props.setTaskSeedText}
+            showTaskSeeds={props.showTaskSeeds}
+            taskSeedText={props.taskSeedText}
+          />
+        )}
+        {tab === 'tasks' && (
+          <WorkspaceRightPane
+            allDependencies={props.allDependencies}
+            artifactCount={props.artifactCount}
+            blockedTaskCount={props.blockedTaskCount}
+            canRerun={props.canRerun}
+            bundleSequence={props.bundleSequence}
+            completedTaskCount={props.completedTaskCount}
+            isRerunning={props.isRerunning}
+            mobile
+            onRerunAction={props.onRerunAction}
+            reviewHref={props.reviewHref}
+            selectedBundle={props.selectedBundle}
+            visibleDependencies={props.visibleDependencies}
+            visibleTasks={props.visibleTasks}
+            warningCount={props.warningCount}
+          />
+        )}
+        {tab === 'info' && (
+          <WorkspaceLeftPane
+            bundles={props.allBundles}
+            capabilityRows={props.capabilityRows}
+            data={props.data}
+            mobile
+            onSelectBundle={props.onSelectBundle}
+            onCancelBundle={props.onCancelBundle}
+            participantCount={props.participantCount}
+            selectedBundleId={props.selectedBundleId}
+          />
+        )}
       </div>
     </div>
   )

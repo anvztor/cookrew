@@ -51,22 +51,22 @@ export function HomeScreen() {
   return (
     <>
       {/* Hero section */}
-      <section className="flex flex-col items-center gap-10 bg-[#FAF8F4] px-20 py-14">
+      <section className="flex flex-col items-center gap-6 sm:gap-10 bg-[#FAF8F4] px-4 sm:px-8 lg:px-20 py-8 sm:py-14">
         <div className="flex flex-col items-center gap-4">
           <span className="inline-flex items-center rounded-md bg-accent-primary px-2 py-[2px] text-[12px] font-medium text-[#5C4A1F] ring-1 ring-inset ring-border-strong">
             Task Collaboration Platform
           </span>
-          <h1 className="text-center text-[40px] font-bold text-text-primary">
+          <h1 className="text-center text-[24px] sm:text-[32px] lg:text-[40px] font-bold text-text-primary">
             Welcome to Cookrew
           </h1>
-          <p className="max-w-[700px] text-center text-[16px] leading-[1.6] text-text-secondary">
+          <p className="max-w-[700px] text-center text-[14px] sm:text-[16px] leading-[1.6] text-text-secondary">
             A collaborative workspace where humans orchestrate AI agents on repositories.
             Claim tasks, ship code, and earn bounty.
           </p>
         </div>
 
         {/* Feature cards */}
-        <div className="flex w-full justify-center gap-6">
+        <div className="flex w-full flex-col sm:flex-row justify-center gap-4 sm:gap-6">
           <FeatureCard
             icon={<GitBranch size={24} className="text-[#D97706]" />}
             iconBg="bg-[#FFD60025]"
@@ -92,10 +92,10 @@ export function HomeScreen() {
       </section>
 
       {/* Explore Projects section */}
-      <section className="flex flex-1 flex-col gap-6 px-20 py-8">
-        <div className="flex items-center justify-between">
-          <h2 className="text-[24px] font-bold text-text-primary">Explore Projects</h2>
-          <div className="flex items-center gap-2 rounded-[10px] border-[1.5px] border-border-strong bg-white px-3" style={{ width: 300, height: 36 }}>
+      <section className="flex flex-1 flex-col gap-4 sm:gap-6 px-4 sm:px-8 lg:px-20 py-6 sm:py-8">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
+          <h2 className="text-[20px] sm:text-[24px] font-bold text-text-primary">Explore Projects</h2>
+          <div className="flex w-full sm:w-[300px] items-center gap-2 rounded-[10px] border-[1.5px] border-border-strong bg-white px-3 h-[40px] sm:h-[36px]">
             <Search size={16} className="text-[#78716C]" />
             <input
               value={search}
@@ -107,13 +107,13 @@ export function HomeScreen() {
         </div>
 
         {/* Category pills */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
           {CATEGORIES.map((cat) => (
             <button
               key={cat}
               type="button"
               onClick={() => setActiveCategory(cat)}
-              className={`rounded-xl border border-border-strong px-4 py-2 text-[14px] font-medium text-[#5C4A1F] transition-colors ${
+              className={`rounded-xl border border-border-strong px-3 sm:px-4 py-2.5 sm:py-2 text-[13px] sm:text-[14px] font-medium text-[#5C4A1F] transition-colors ${
                 activeCategory === cat ? 'bg-accent-primary' : 'bg-bg-surface'
               }`}
             >
@@ -191,7 +191,7 @@ function RealProjectGrid({
   })
 
   return (
-    <div className="grid grid-cols-4 gap-5">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
       {filtered.map((group) => (
         <Link
           key={group.cookbook.id}
@@ -237,10 +237,10 @@ function SampleProjectGrid() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="grid grid-cols-4 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
         {row1.map((p) => <ProjectCardUI key={p.title} project={p} />)}
       </div>
-      <div className="grid grid-cols-4 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
         {row2.map((p) => <ProjectCardUI key={p.title} project={p} />)}
       </div>
     </div>
