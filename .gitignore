@@ -22,6 +22,12 @@
 # production
 /build
 
+# workspace package build outputs
+packages/*/node_modules
+packages/*/.next
+packages/*/out
+packages/*/dist
+
 # misc
 .DS_Store
 *.pem

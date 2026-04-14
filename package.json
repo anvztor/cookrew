@@ -1,37 +1,23 @@
 {
-  "name": "cookrew",
+  "name": "cookrew-mono",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --webpack",
-    "build": "next build",
-    "start": "next start",
-    "lint": "mkdir -p test-results && eslint",
+    "dev": "pnpm --filter @cookrew/bff dev & pnpm --filter @cookrew/web dev",
+    "dev:web": "pnpm --filter @cookrew/web dev",
+    "dev:bff": "pnpm --filter @cookrew/bff dev",
+    "build": "pnpm --filter @cookrew/shared typecheck && pnpm --filter @cookrew/web build && pnpm --filter @cookrew/bff typecheck",
+    "build:web": "pnpm --filter @cookrew/web build",
+    "build:bff": "pnpm --filter @cookrew/bff typecheck",
+    "lint": "pnpm --filter @cookrew/web lint",
     "test:e2e": "playwright test",
     "test:e2e:trace": "PW_TRACE=on PW_SERVER_LOGS=1 playwright test --trace on",
+    "typecheck": "pnpm -r typecheck",
     "ab:open": "agent-browser open http://127.0.0.1:3210",
     "ab:debug": "agent-browser batch --bail \"open http://127.0.0.1:3210\" \"snapshot -i -c\" \"console\" \"errors\" \"network requests\"",
-    "ab:trace": "mkdir -p test-results && agent-browser open http://127.0.0.1:3210 && agent-browser trace start ./test-results/devtools-trace.json && agent-browser snapshot -i -c && agent-browser trace stop ./test-results/devtools-trace.json",
     "ab:dashboard": "agent-browser dashboard start --port 4848"
   },
-  "dependencies": {
-    "lucide-react": "^1.7.0",
-    "mermaid": "^11.14.0",
-    "next": "16.2.1",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
-    "react-resizable-panels": "^4.8.0",
-    "viem": "^2.47.12"
-  },
   "devDependencies": {
-    "@playwright/test": "^1.53.2",
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.2.1",
-    "tailwindcss": "^4",
-    "typescript": "^5"
+    "@playwright/test": "^1.53.2"
   }
 }

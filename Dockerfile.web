@@ -1,0 +1,32 @@
+FROM node:22-alpine AS deps
+RUN corepack enable && corepack prepare pnpm@latest --activate
+WORKDIR /app
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY packages/shared/package.json packages/shared/
+COPY packages/web/package.json packages/web/
+RUN pnpm install --frozen-lockfile
+
+FROM node:22-alpine AS build
+RUN corepack enable && corepack prepare pnpm@latest --activate
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules
+COPY --from=deps /app/packages/web/node_modules ./packages/web/node_modules
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json ./
+COPY packages/shared/ packages/shared/
+COPY packages/web/ packages/web/
+ARG NEXT_PUBLIC_KREW_AUTH_URL=https://auth.cookrew.dev
+ENV NEXT_PUBLIC_KREW_AUTH_URL=${NEXT_PUBLIC_KREW_AUTH_URL}
+ARG BFF_INTERNAL_URL=http://cookrew-bff.goat-network.svc.cluster.local:3001
+ENV BFF_INTERNAL_URL=${BFF_INTERNAL_URL}
+RUN pnpm --filter @cookrew/web build
+
+FROM node:22-alpine
+WORKDIR /app
+COPY --from=build /app/packages/web/.next/standalone ./
+COPY --from=build /app/packages/web/.next/static ./packages/web/.next/static
+COPY --from=build /app/packages/web/public ./packages/web/public
+ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
+EXPOSE 3000
+CMD ["node", "packages/web/server.js"]

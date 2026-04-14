@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "paths": {
+      "@cookrew/shared": ["../shared/src"],
+      "@cookrew/shared/*": ["../shared/src/*"]
+    }
+  },
+  "include": ["src"]
+}
