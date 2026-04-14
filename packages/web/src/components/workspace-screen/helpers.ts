@@ -82,8 +82,8 @@ export function agentTone(status: AgentPresence['status']): AgentTonePresentatio
 
 export function readAgentActivity(agent: AgentPresence): string {
   if (agent.status === 'busy') {
-    return agent.currentTaskId
-      ? `working on ${agent.currentTaskId}`
+    return agent.current_task_id
+      ? `working on ${agent.current_task_id}`
       : 'working on active task'
   }
 
@@ -91,7 +91,7 @@ export function readAgentActivity(agent: AgentPresence): string {
     return 'idle — awaiting task'
   }
 
-  return `last heartbeat ${formatRelativeTime(agent.lastHeartbeatAt)}`
+  return `last heartbeat ${formatRelativeTime(agent.last_heartbeat_at)}`
 }
 
 export function getCapabilityRows(
@@ -183,7 +183,7 @@ export function getTaskPresentation(status: TaskStatus): TaskPresentation {
 }
 
 export function getEventPresentation(event: Event): EventPresentation {
-  if (event.actorType === 'hook') {
+  if (event.actor_type === 'hook') {
     if (event.type === 'session_start') {
       return {
         label: 'hook:session-start',
@@ -218,7 +218,7 @@ export function getEventPresentation(event: Event): EventPresentation {
     }
   }
 
-  if (event.type === 'prompt' && event.actorType === 'human') {
+  if (event.type === 'prompt' && event.actor_type === 'human') {
     return {
       label: 'human:prompt',
       tone: 'blue',
@@ -245,7 +245,7 @@ export function getEventPresentation(event: Event): EventPresentation {
     }
   }
 
-  if (event.type === 'milestone' && event.actorType === 'agent') {
+  if (event.type === 'milestone' && event.actor_type === 'agent') {
     return {
       label: 'agent:output',
       tone: 'violet',
@@ -299,7 +299,7 @@ export function getEventPresentation(event: Event): EventPresentation {
     }
   }
 
-  if (event.actorType === 'system') {
+  if (event.actor_type === 'system') {
     return {
       label: 'system:plan',
       tone: 'amber',
@@ -309,7 +309,7 @@ export function getEventPresentation(event: Event): EventPresentation {
   }
 
   return {
-    label: `${event.actorType}:${event.type.replaceAll('_', '-')}`,
+    label: `${event.actor_type}:${event.type.replaceAll('_', '-')}`,
     tone: 'blue',
     icon: Sparkles,
     bodyClassName: 'text-[#57534E]',
@@ -321,7 +321,7 @@ export function buildDependencyRows(tasks: readonly Task[]): DependencyRow[] {
   const dependencies: DependencyRow[] = []
 
   for (const task of tasks) {
-    for (const dependencyId of task.dependsOnTaskIds) {
+    for (const dependencyId of task.depends_on_task_ids) {
       const dependencyTask = taskMap.get(dependencyId)
       if (!dependencyTask) {
         continue
@@ -346,7 +346,7 @@ export function countArtifactPaths(
   }
 
   const digestPathCount =
-    selectedBundle.digest?.codeRefs.reduce(
+    selectedBundle.digest?.code_refs.reduce(
       (count, codeRef) => count + codeRef.paths.length,
       0
     ) ?? 0
@@ -358,7 +358,7 @@ export function countArtifactPaths(
   return selectedBundle.events.reduce(
     (count, event) =>
       count +
-      event.codeRefs.reduce(
+      event.code_refs.reduce(
         (eventCount, codeRef) => eventCount + codeRef.paths.length,
         0
       ),
@@ -375,9 +375,9 @@ export function pickTargetAgent(
     selectedBundle?.tasks.find((task) => task.status === 'claimed') ??
     null
 
-  if (activeTask?.claimedByAgentId) {
+  if (activeTask?.claimed_by_agent_id) {
     const matchingAgent = agents.find(
-      (agent) => agent.agentId === activeTask.claimedByAgentId
+      (agent) => agent.agent_id === activeTask.claimed_by_agent_id
     )
     if (matchingAgent) {
       return matchingAgent

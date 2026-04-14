@@ -12,8 +12,6 @@ import type {
   WorkspaceData,
 } from '@cookrew/shared'
 
-const BFF_BASE = process.env.NEXT_PUBLIC_BFF_URL ?? ''
-
 class ApiError extends Error {
   readonly status: number
 
@@ -28,8 +26,7 @@ async function requestJson<T>(
   input: RequestInfo,
   init?: RequestInit
 ): Promise<T> {
-  const url = typeof input === 'string' && input.startsWith('/') ? `${BFF_BASE}${input}` : input
-  const response = await fetch(url, {
+  const response = await fetch(input, {
     ...init,
     credentials: 'include',
     headers: {
@@ -40,24 +37,24 @@ async function requestJson<T>(
 
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as
-      | { error?: string }
+      | { error?: string; detail?: string }
       | null
-    throw new ApiError(body?.error ?? 'Request failed', response.status)
+    throw new ApiError(body?.error ?? body?.detail ?? 'Request failed', response.status)
   }
 
   return (await response.json()) as T
 }
 
 export async function getCookbookData(): Promise<CookbookData> {
-  return requestJson<CookbookData>('/api/recipes')
+  return requestJson<CookbookData>('/api/v1/cookbooks-data')
 }
 
 export async function getCookbookDetailData(cookbookId: string): Promise<CookbookDetailData> {
-  return requestJson<CookbookDetailData>(`/api/cookbooks/${cookbookId}`)
+  return requestJson<CookbookDetailData>(`/api/v1/cookbooks/${cookbookId}/detail`)
 }
 
 export async function createRecipe(input: CreateRecipeInput): Promise<Recipe> {
-  return requestJson<Recipe>('/api/recipes', {
+  return requestJson<Recipe>('/api/v1/recipes', {
     method: 'POST',
     body: JSON.stringify(input),
   })
@@ -67,17 +64,21 @@ export async function getWorkspaceData(
   recipeId: string,
   bundleId?: string | null
 ): Promise<WorkspaceData> {
-  const search = bundleId ? `?bundleId=${encodeURIComponent(bundleId)}` : ''
-  return requestJson<WorkspaceData>(`/api/recipes/${recipeId}${search}`)
+  const search = bundleId ? `?bundle_id=${encodeURIComponent(bundleId)}` : ''
+  return requestJson<WorkspaceData>(`/api/v1/recipes/${recipeId}/workspace${search}`)
 }
 
 export async function createBundle(
   recipeId: string,
   input: CreateBundleInput
-): Promise<{ bundleId: string }> {
-  return requestJson<{ bundleId: string }>(`/api/recipes/${recipeId}/bundles`, {
+): Promise<{ bundle_id: string }> {
+  return requestJson<{ bundle_id: string }>(`/api/v1/recipes/${recipeId}/bundles`, {
     method: 'POST',
-    body: JSON.stringify(input),
+    body: JSON.stringify({
+      prompt: input.prompt,
+      requested_by: input.requested_by,
+      tasks: input.task_titles.map(title => ({ title })),
+    }),
   })
 }
 
@@ -86,16 +87,16 @@ export async function getDigestReviewData(
   bundleId: string
 ): Promise<DigestReviewData> {
   return requestJson<DigestReviewData>(
-    `/api/recipes/${recipeId}/bundles/${bundleId}/digest`
+    `/api/v1/recipes/${recipeId}/digest-review/${bundleId}`
   )
 }
 
 export async function rerunBundle(
-  recipeId: string,
+  _recipeId: string,
   bundleId: string
-): Promise<{ bundleId: string }> {
-  return requestJson<{ bundleId: string }>(
-    `/api/recipes/${recipeId}/bundles/${bundleId}/rerun`,
+): Promise<{ bundle_id: string }> {
+  return requestJson<{ bundle_id: string }>(
+    `/api/v1/bundles/${bundleId}/rerun`,
     {
       method: 'POST',
     }
@@ -103,12 +104,12 @@ export async function rerunBundle(
 }
 
 export async function decideDigest(
-  recipeId: string,
+  _recipeId: string,
   bundleId: string,
   input: DecisionInput
-): Promise<{ redirectTo: string }> {
-  return requestJson<{ redirectTo: string }>(
-    `/api/recipes/${recipeId}/bundles/${bundleId}/decision`,
+): Promise<{ redirect_to: string }> {
+  return requestJson<{ redirect_to: string }>(
+    `/api/v1/bundles/${bundleId}/decision`,
     {
       method: 'POST',
       body: JSON.stringify(input),
@@ -117,7 +118,5 @@ export async function decideDigest(
 }
 
 export async function getHistoryData(recipeId: string): Promise<HistoryData> {
-  return requestJson<HistoryData>(`/api/recipes/${recipeId}/history`)
+  return requestJson<HistoryData>(`/api/v1/recipes/${recipeId}/history-data`)
 }
-
-

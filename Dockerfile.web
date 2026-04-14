@@ -17,8 +17,8 @@ COPY packages/shared/ packages/shared/
 COPY packages/web/ packages/web/
 ARG NEXT_PUBLIC_KREW_AUTH_URL=https://auth.cookrew.dev
 ENV NEXT_PUBLIC_KREW_AUTH_URL=${NEXT_PUBLIC_KREW_AUTH_URL}
-ARG BFF_INTERNAL_URL=http://cookrew-bff.goat-network.svc.cluster.local:3001
-ENV BFF_INTERNAL_URL=${BFF_INTERNAL_URL}
+ARG KREWHUB_INTERNAL_URL=http://krewhub.goat-network.svc.cluster.local:8420
+ENV KREWHUB_INTERNAL_URL=${KREWHUB_INTERNAL_URL}
 RUN pnpm --filter @cookrew/web build
 
 FROM node:22-alpine

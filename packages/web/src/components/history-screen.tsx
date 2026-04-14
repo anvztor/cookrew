@@ -145,21 +145,21 @@ export function HistoryScreen({ recipeId }: HistoryScreenProps) {
                   <div className="flex flex-col gap-[6px] border border-border-strong bg-amber-50 p-3">
                     <p className="text-[13px] font-bold text-text-primary">Approved Digests</p>
                     <p className="text-[28px] font-bold text-text-primary">
-                      {data.metrics.approvedCount}
+                      {data.metrics.approved_count}
                     </p>
                   </div>
                   <div className="flex flex-col gap-[6px] border border-border-strong bg-amber-50 p-3">
                     <p className="text-[13px] font-bold text-text-primary">Median Review Time</p>
                     <p className="text-[28px] font-bold text-text-primary">
-                      {data.metrics.medianReviewMinutes === null
+                      {data.metrics.median_review_minutes === null
                         ? 'N/A'
-                        : `${data.metrics.medianReviewMinutes}m`}
+                        : `${data.metrics.median_review_minutes}m`}
                     </p>
                   </div>
                   <div className="flex flex-col gap-[6px] border border-border-strong bg-amber-50 p-3">
                     <p className="text-[13px] font-bold text-text-primary">Most Recent Approval</p>
                     <p className="text-[14px] font-bold text-text-primary">
-                      {formatDateOnly(data.metrics.mostRecentApprovalAt)}
+                      {formatDateOnly(data.metrics.most_recent_approval_at)}
                     </p>
                   </div>
                 </div>
@@ -170,10 +170,10 @@ export function HistoryScreen({ recipeId }: HistoryScreenProps) {
                   <FolderGit2 size={16} />
                   Recipe Context
                 </p>
-                <p className="font-medium">{data.recipe.repoUrl}</p>
+                <p className="font-medium">{data.recipe.repo_url}</p>
                 <p className="tiny-copy mt-2">
-                  Created {formatRelativeTime(data.recipe.createdAt)} by{' '}
-                  {data.recipe.createdBy}
+                  Created {formatRelativeTime(data.recipe.created_at)} by{' '}
+                  {data.recipe.created_by}
                 </p>
                 <div className="button-row mt-4">
                   <Link
@@ -212,7 +212,7 @@ export function HistoryScreen({ recipeId }: HistoryScreenProps) {
                         <div>
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="font-semibold">
-                              {record.bundle?.id ?? record.digest.bundleId}
+                              {record.bundle?.id ?? record.digest.bundle_id}
                             </p>
                             <DecisionBadge decision={record.digest.decision} />
                           </div>
@@ -221,26 +221,26 @@ export function HistoryScreen({ recipeId }: HistoryScreenProps) {
                           </p>
                           <p className="tiny-copy mt-2">
                             {record.digest.facts.length} facts ·{' '}
-                            {record.digest.codeRefs.length} code refs
+                            {record.digest.code_refs.length} code refs
                           </p>
                         </div>
 
                         <div className="tiny-copy">
-                          <p>Submitted {formatTimestamp(record.digest.submittedAt)}</p>
+                          <p>Submitted {formatTimestamp(record.digest.submitted_at)}</p>
                           <p className="mt-1">
-                            Approved {formatTimestamp(record.digest.decidedAt)}
+                            Approved {formatTimestamp(record.digest.decided_at)}
                           </p>
                         </div>
 
                         <div className="flex flex-wrap gap-3">
                           <Link
-                            href={`/recipes/${recipeId}/bundles/${record.digest.bundleId}/digest`}
+                            href={`/recipes/${recipeId}/bundles/${record.digest.bundle_id}/digest`}
                             className="button-inline"
                           >
                             Open Digest
                           </Link>
                           <Link
-                            href={`/recipes/${recipeId}?bundle=${record.digest.bundleId}`}
+                            href={`/recipes/${recipeId}?bundle=${record.digest.bundle_id}`}
                             className="button-inline"
                           >
                             Open Workspace

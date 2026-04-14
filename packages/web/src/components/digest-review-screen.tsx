@@ -33,10 +33,10 @@ function buildTaskOutcome(
   events: readonly BundleWithDetails['events'][number][]
 ): string {
   const latestTaskEvent = [...events]
-    .filter((event) => event.taskId === task.id && event.type !== 'task_claimed')
+    .filter((event) => event.task_id === task.id && event.type !== 'task_claimed')
     .sort(
       (left, right) =>
-        new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
+        new Date(right.created_at).getTime() - new Date(left.created_at).getTime()
     )[0]
 
   if (latestTaskEvent?.body.trim()) {
@@ -44,8 +44,8 @@ function buildTaskOutcome(
   }
 
   if (task.status === 'blocked') {
-    return task.blockedReason?.trim()
-      ? `Blocked: ${task.blockedReason.trim()}`
+    return task.blocked_reason?.trim()
+      ? `Blocked: ${task.blocked_reason.trim()}`
       : 'Task blocked.'
   }
 
@@ -67,9 +67,9 @@ function dedupeFacts(facts: readonly FactRef[]): FactRef[] {
   for (const fact of facts) {
     const key = fact.id || [
       fact.claim,
-      fact.sourceUrl ?? '',
-      fact.sourceTitle ?? '',
-      fact.capturedBy,
+      fact.source_url ?? '',
+      fact.source_title ?? '',
+      fact.captured_by,
     ].join('::')
 
     if (seen.has(key)) {
@@ -89,9 +89,9 @@ function dedupeCodeRefs(codeRefs: readonly CodeRef[]): CodeRef[] {
 
   for (const codeRef of codeRefs) {
     const key = [
-      codeRef.repoUrl,
+      codeRef.repo_url,
       codeRef.branch,
-      codeRef.commitSha,
+      codeRef.commit_sha,
       codeRef.paths.join('::'),
     ].join('::')
 
@@ -209,11 +209,11 @@ export function DigestReviewScreen({
     try {
       const result = await decideDigest(recipeId, bundleId, {
         decision,
-        decidedBy: data.recipe.createdBy || 'cookrew-reviewer',
+        decided_by: data.recipe.created_by || 'cookrew-reviewer',
         note,
       })
 
-      router.push(result.redirectTo)
+      router.push(result.redirect_to)
     } catch (submissionError) {
       setError(
         submissionError instanceof Error
@@ -225,7 +225,7 @@ export function DigestReviewScreen({
     }
   }
 
-  const selectedBundle = data?.selectedBundle ?? null
+  const selectedBundle = data?.selected_bundle ?? null
   const digest = selectedBundle?.digest ?? null
   const reviewFacts = selectedBundle
     ? dedupeFacts(
@@ -234,14 +234,14 @@ export function DigestReviewScreen({
     : []
   const reviewCodeRefs = selectedBundle
     ? dedupeCodeRefs(
-        digest?.codeRefs ?? selectedBundle.events.flatMap((event) => event.codeRefs)
+        digest?.code_refs ?? selectedBundle.events.flatMap((event) => event.code_refs)
       )
     : []
   const taskOutcomes = selectedBundle
     ? selectedBundle.tasks.map((task) => ({
         task,
         outcome:
-          digest?.taskResults.find((entry) => entry.taskId === task.id)?.outcome ??
+          digest?.task_results.find((entry) => entry.task_id === task.id)?.outcome ??
           buildTaskOutcome(task, selectedBundle.events),
       }))
     : []
@@ -312,7 +312,7 @@ export function DigestReviewScreen({
                   </span>
                   <span className="text-xs font-medium text-[#57534E]">
                     {digest
-                      ? `Generated ${formatDateOnly(digest.submittedAt)}`
+                      ? `Generated ${formatDateOnly(digest.submitted_at)}`
                       : 'In progress'}
                   </span>
                 </div>
@@ -402,7 +402,7 @@ export function DigestReviewScreen({
                           {fact.claim}
                         </span>
                         <span className="shrink-0 text-[11px] text-[#57534E]">
-                          {fact.sourceTitle ?? fact.capturedBy}
+                          {fact.source_title ?? fact.captured_by}
                         </span>
                       </div>
                     ))
@@ -431,7 +431,7 @@ export function DigestReviewScreen({
                           pathIndex === codeRef.paths.length - 1
                         return (
                           <div
-                            key={`${codeRef.commitSha}-${filePath}`}
+                            key={`${codeRef.commit_sha}-${filePath}`}
                             className={`flex items-center gap-2.5 px-4 py-2.5 ${
                               isLast ? '' : 'border-b border-[#E5E2DC]'
                             }`}
@@ -441,7 +441,7 @@ export function DigestReviewScreen({
                               {filePath}
                             </span>
                             <span className="shrink-0 font-mono text-[11px] font-medium text-emerald-600">
-                              {codeRef.commitSha.slice(0, 7)}
+                              {codeRef.commit_sha.slice(0, 7)}
                             </span>
                           </div>
                         )
@@ -462,15 +462,15 @@ export function DigestReviewScreen({
               <span className="text-sm font-bold">Digest Metadata</span>
               <MetaRow label="Digest ID" value={digest ? `#${digest.id.slice(-4)}` : '--'} />
               <MetaRow label="Recipe" value={data?.recipe.name ?? '--'} />
-              <MetaRow label="Branch" value={data?.recipe.defaultBranch ?? '--'} />
-              <MetaRow label="Author" value={selectedBundle.bundle.createdBy} />
+              <MetaRow label="Branch" value={data?.recipe.default_branch ?? '--'} />
+              <MetaRow label="Author" value={selectedBundle.bundle.created_by} />
               <MetaRow
                 label="Bundle Status"
                 value={selectedBundle.bundle.status}
               />
               <MetaRow
                 label="Created"
-                value={formatDateOnly(selectedBundle.bundle.createdAt)}
+                value={formatDateOnly(selectedBundle.bundle.created_at)}
               />
             </div>
 
@@ -541,12 +541,12 @@ export function DigestReviewScreen({
                       {decisionBadgeLabel(digest.decision)}
                     </span>
                     <span className="text-[11px] text-[#57534E]">
-                      {formatDateOnly(digest.decidedAt)}
+                      {formatDateOnly(digest.decided_at)}
                     </span>
                   </div>
-                  {digest.decidedBy && (
+                  {digest.decided_by && (
                     <span className="text-[11px] text-[#78716C]">
-                      by {digest.decidedBy}
+                      by {digest.decided_by}
                     </span>
                   )}
                 </div>

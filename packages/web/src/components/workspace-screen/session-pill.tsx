@@ -39,7 +39,7 @@ export function SessionPill({
   readonly kind: 'session_start' | 'session_end'
 }) {
   if (kind === 'session_start' && payload?.kind === 'session_start') {
-    const label = [payload.agentName, payload.model].filter(Boolean).join(' · ')
+    const label = [payload.agent_name, payload.model].filter(Boolean).join(' · ')
     return (
       <div className="inline-flex items-center gap-2 rounded-full border border-[#059669]/30 bg-[#ECFDF5] px-2.5 py-1 text-[11px] text-[#065F46]">
         <Play size={11} className="fill-[#059669] text-[#059669]" />
@@ -53,9 +53,9 @@ export function SessionPill({
 
   if (kind === 'session_end' && payload?.kind === 'session_end') {
     const pieces = [
-      formatDuration(payload.durationMs),
+      formatDuration(payload.duration_ms),
       formatTokens(payload.tokens),
-      formatCost(payload.costUsd),
+      formatCost(payload.cost_usd),
     ].filter(Boolean)
     const borderColor = payload.success ? '#059669' : '#B91C1C'
     const bg = payload.success ? '#ECFDF5' : '#FEF2F2'

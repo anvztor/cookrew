@@ -2,7 +2,6 @@
 
 import type { WatchEvent } from '@cookrew/shared'
 
-const BFF_BASE = process.env.NEXT_PUBLIC_BFF_URL ?? ''
 
 export type WatchCallback = (event: WatchEvent) => void
 
@@ -32,7 +31,7 @@ export function openWatchStream(
     const params = new URLSearchParams({
       since: String(lastSeq),
     })
-    const url = `${BFF_BASE}/api/recipes/${recipeId}/watch?${params.toString()}`
+    const url = `/api/v1/watch?recipe_id=${recipeId}&since=${lastSeq}`
     source = new EventSource(url)
 
     source.addEventListener('ADDED', handleMessage)

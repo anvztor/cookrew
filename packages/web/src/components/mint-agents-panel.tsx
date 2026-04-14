@@ -28,7 +28,7 @@ export function MintAgentsPanel() {
 
   const fetchPending = useCallback(async () => {
     try {
-      const resp = await fetch('/api/mint-ops')
+      const resp = await fetch('/api/v1/mint-ops', { credentials: 'include' })
       if (resp.ok) setOps(await resp.json())
     } catch { /* ignore */ }
   }, [])
@@ -130,9 +130,10 @@ export function MintAgentsPanel() {
       })
 
       // Confirm in krewauth
-      await fetch('/api/mint-ops', {
+      await fetch('/api/v1/mint-ops', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ action: 'confirm', mint_id: op.id, tx_hash: txHash }),
       })
 

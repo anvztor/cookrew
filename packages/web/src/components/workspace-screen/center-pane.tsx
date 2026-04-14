@@ -242,7 +242,7 @@ export function WorkspaceCenterPane({
 
             <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#9333EA]">
               <AtSign size={12} />
-              <span>{selectedAgent?.displayName ?? 'all-agents'}</span>
+              <span>{selectedAgent?.display_name ?? 'all-agents'}</span>
             </div>
           </div>
 

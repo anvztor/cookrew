@@ -24,11 +24,11 @@ const SOURCE_TONE: Record<string, string> = {
 const COLLAPSE_THRESHOLD = 200
 
 function isAgentOutput(event: Event): boolean {
-  return event.type === 'milestone' && event.actorType === 'agent'
+  return event.type === 'milestone' && event.actor_type === 'agent'
 }
 
 function isHookEvent(event: Event): boolean {
-  return event.actorType === 'hook'
+  return event.actor_type === 'hook'
 }
 
 function hookSourceLabel(event: Event): string | null {
@@ -90,7 +90,7 @@ export function EventCard({
             tone={presentation.tone}
           />
           <span className="text-[13px] font-semibold text-[#2D2A20]">
-            {event.actorId}
+            {event.actor_id}
           </span>
           {source ? (
             <span
@@ -122,9 +122,9 @@ export function EventCard({
           ) : null}
           <span
             className="text-[11px] text-[#57534E]"
-            title={formatTimestamp(event.createdAt)}
+            title={formatTimestamp(event.created_at)}
           >
-            {formatRelativeTime(event.createdAt)}
+            {formatRelativeTime(event.created_at)}
           </span>
         </div>
       </div>

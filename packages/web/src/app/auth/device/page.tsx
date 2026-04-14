@@ -19,6 +19,7 @@ export default function DeviceAuthPage() {
       const resp = await fetch('/api/auth/device-approve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ user_code: code.trim().toUpperCase() }),
       })
 

@@ -31,7 +31,7 @@ export function SessionKeyPanel({ smartAccountAddress }: SessionKeyPanelProps) {
 
   const fetchPending = useCallback(async () => {
     try {
-      const resp = await fetch('/api/session-keys')
+      const resp = await fetch('/api/v1/session-keys', { credentials: 'include' })
       if (resp.ok) setRequests(await resp.json())
     } catch { /* ignore */ }
   }, [])
@@ -88,9 +88,10 @@ export function SessionKeyPanel({ smartAccountAddress }: SessionKeyPanelProps) {
       })
 
       // Confirm in krewauth
-      await fetch('/api/session-keys', {
+      await fetch('/api/v1/session-keys', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ action: 'confirm', request_id: req.id }),
       })
 
@@ -103,9 +104,10 @@ export function SessionKeyPanel({ smartAccountAddress }: SessionKeyPanelProps) {
   }, [smartAccountAddress])
 
   const reject = useCallback(async (req: PendingRequest) => {
-    await fetch('/api/session-keys', {
+    await fetch('/api/v1/session-keys', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ action: 'reject', request_id: req.id }),
     })
     setRequests(prev => prev.filter(r => r.id !== req.id))

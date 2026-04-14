@@ -32,7 +32,7 @@ export function WorkspaceRightPane({
 }: WorkspaceRightPaneProps) {
   const taskCount = selectedBundle?.tasks.length ?? 0
   const digestSubmittedAt =
-    selectedBundle?.digest?.submittedAt ?? selectedBundle?.bundle.digestedAt ?? null
+    selectedBundle?.digest?.submitted_at ?? selectedBundle?.bundle.digested_at ?? null
   const digestBadge = selectedBundle?.digest
     ? { label: 'complete', tone: 'emerald' as const }
     : selectedBundle?.bundle.status === 'blocked'
@@ -41,13 +41,13 @@ export function WorkspaceRightPane({
 
   // Mermaid diagram + currently-running graph node, derived from the
   // bundle's attached graph code and the first in-flight task.
-  const graphMermaid = selectedBundle?.bundle.graphMermaid ?? null
+  const graphMermaid = selectedBundle?.bundle.graph_mermaid ?? null
   const runningGraphNodeId = useMemo(() => {
     if (selectedBundle == null) return null
     const inFlight = selectedBundle.tasks.find(
       (t) => t.status === 'working' || t.status === 'claimed',
     )
-    return inFlight?.graphNodeId ?? null
+    return inFlight?.graph_node_id ?? null
   }, [selectedBundle])
 
   return (
@@ -68,7 +68,7 @@ export function WorkspaceRightPane({
         <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] font-medium text-[#57534E]">
           <span>{`v${bundleSequence}.0`}</span>
           <span>·</span>
-          <span>{`owner: ${selectedBundle?.bundle.createdBy ?? 'n/a'}`}</span>
+          <span>{`owner: ${selectedBundle?.bundle.created_by ?? 'n/a'}`}</span>
         </div>
       </section>
 

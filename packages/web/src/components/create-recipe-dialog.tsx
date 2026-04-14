@@ -41,10 +41,10 @@ export function CreateRecipeDialog({
     try {
       const recipe = await createRecipe({
         name: nextName,
-        repoUrl: nextRepoUrl,
-        defaultBranch: nextDefaultBranch || 'main',
-        createdBy: nextCreatedBy,
-        cookbookId,
+        repo_url: nextRepoUrl,
+        default_branch: nextDefaultBranch || 'main',
+        created_by: nextCreatedBy,
+        cookbook_id: cookbookId,
       })
 
       setName('')

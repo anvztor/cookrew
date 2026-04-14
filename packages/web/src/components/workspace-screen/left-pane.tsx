@@ -65,16 +65,16 @@ export function WorkspaceLeftPane({
                     avatar.className
                   )}
                 >
-                  {initials(member.actorId)}
+                  {initials(member.actor_id)}
                 </div>
 
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[13px] font-semibold text-[#2D2A20]">
-                    {member.actorId}
+                    {member.actor_id}
                     {member.role === 'owner' ? ' (owner)' : ''}
                   </p>
                   <p className="truncate text-[11px] text-[#57534E]">
-                    {member.role} · joined {formatRelativeTime(member.joinedAt)}
+                    {member.role} · joined {formatRelativeTime(member.joined_at)}
                   </p>
                 </div>
 
@@ -95,7 +95,7 @@ export function WorkspaceLeftPane({
             const activeLabel = readAgentActivity(agent)
 
             return (
-              <div key={agent.agentId} className="flex items-center gap-2.5">
+              <div key={agent.agent_id} className="flex items-center gap-2.5">
                 <div
                   className={joinClasses(
                     'flex h-7 w-7 items-center justify-center rounded-full border border-[#2D2A20]',
@@ -107,7 +107,7 @@ export function WorkspaceLeftPane({
 
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[13px] font-semibold text-[#2D2A20]">
-                    {agent.displayName}
+                    {agent.display_name}
                   </p>
                   <p className={joinClasses('truncate text-[11px]', tone.copyClassName)}>
                     {activeLabel}

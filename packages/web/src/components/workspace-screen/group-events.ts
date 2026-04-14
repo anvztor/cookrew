@@ -56,7 +56,7 @@ interface GroupContext {
 }
 
 const isHookToolUse = (ev: Event): boolean =>
-  ev.actorType === 'hook' && ev.type === 'tool_use'
+  ev.actor_type === 'hook' && ev.type === 'tool_use'
 
 const hookEventName = (ev: Event): string => {
   const raw = (ev.payload as Record<string, unknown>)?.hook_event_name
@@ -89,7 +89,7 @@ const signature = (ev: Event): string => {
 }
 
 const isReasoning = (ev: Event): boolean => {
-  if (ev.actorType !== 'hook' || ev.type !== 'agent_reply') return false
+  if (ev.actor_type !== 'hook' || ev.type !== 'agent_reply') return false
   const payload = ev.payload as Record<string, unknown>
   const kind = payload?._codex_kind
   return kind === 'reasoning'
@@ -161,14 +161,14 @@ export function groupEvents(events: readonly Event[]): EventGroup[] {
       if (!fp) continue
       milestoneFingerprints.push({
         fp,
-        ts: new Date(ev.createdAt).getTime(),
+        ts: new Date(ev.created_at).getTime(),
       })
     }
     for (const ev of events) {
       if (ev.type !== 'agent_reply') continue
       const fp = assistantFingerprint(ev)
       if (!fp) continue
-      const ts = new Date(ev.createdAt).getTime()
+      const ts = new Date(ev.created_at).getTime()
       const matched = milestoneFingerprints.some(
         (m) => m.fp === fp && Math.abs(m.ts - ts) < 60_000
       )
@@ -265,7 +265,7 @@ export function groupEvents(events: readonly Event[]): EventGroup[] {
       }
     }
 
-    if (ev.actorType === 'hook' && ev.type === 'session_start') {
+    if (ev.actor_type === 'hook' && ev.type === 'session_start') {
       const sid = sessionIdOf(ev)
       if (sid && ctx.seenSessionStart.has(sid)) continue
       if (sid) ctx.seenSessionStart.add(sid)
@@ -278,7 +278,7 @@ export function groupEvents(events: readonly Event[]): EventGroup[] {
       })
       continue
     }
-    if (ev.actorType === 'hook' && ev.type === 'session_end') {
+    if (ev.actor_type === 'hook' && ev.type === 'session_end') {
       const sid = sessionIdOf(ev)
       if (sid && ctx.seenSessionEnd.has(sid)) continue
       if (sid) ctx.seenSessionEnd.add(sid)
@@ -316,7 +316,7 @@ export function groupEvents(events: readonly Event[]): EventGroup[] {
           .slice(0, 80)
       if (fingerprint.length >= 12) {
         const seenAt = recentAssistantBodies.get(fingerprint)
-        const ts = new Date(ev.createdAt).getTime()
+        const ts = new Date(ev.created_at).getTime()
         if (seenAt && Math.abs(ts - seenAt) < 60_000) {
           continue
         }
@@ -340,8 +340,8 @@ export function groupEvents(events: readonly Event[]): EventGroup[] {
 
 function computeDuration(pre: Event, post: Event): number | null {
   try {
-    const a = new Date(pre.createdAt).getTime()
-    const b = new Date(post.createdAt).getTime()
+    const a = new Date(pre.created_at).getTime()
+    const b = new Date(post.created_at).getTime()
     if (Number.isFinite(a) && Number.isFinite(b) && b >= a) {
       return b - a
     }
@@ -374,7 +374,7 @@ function assignTurnsAndIndices(groups: readonly EventGroup[]): EventGroup[] {
         key: `td:${promptEv.id}`,
         turn,
         index,
-        startedAt: promptEv.createdAt,
+        startedAt: promptEv.created_at,
         prompt: (promptEv.body || '').trim(),
       })
       // Skip emitting the original prompt card — the divider already

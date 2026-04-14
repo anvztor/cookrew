@@ -45,17 +45,17 @@ export interface TokenUsage {
 export type EventPayload =
   | {
       readonly kind: 'session_start'
-      readonly agentName: string
+      readonly agent_name: string
       readonly model?: string
       readonly cwd?: string
-      readonly sessionId?: string
+      readonly session_id?: string
       readonly tools?: readonly string[]
       readonly prompt?: string
     }
   | {
       readonly kind: 'agent_reply'
       readonly text: string
-      readonly blockIndex: number
+      readonly block_index: number
       readonly model?: string
       readonly stream?: 'stdout' | 'stderr'
     }
@@ -65,25 +65,25 @@ export type EventPayload =
     }
   | {
       readonly kind: 'tool_use'
-      readonly toolUseId: string
-      readonly toolName: string
+      readonly tool_use_id: string
+      readonly tool_name: string
       readonly input: unknown
     }
   | {
       readonly kind: 'tool_result'
-      readonly toolUseId: string
+      readonly tool_use_id: string
       readonly output: string
-      readonly isError: boolean
+      readonly is_error: boolean
     }
   | {
       readonly kind: 'session_end'
       readonly success: boolean
-      readonly durationMs?: number
-      readonly numTurns?: number
+      readonly duration_ms?: number
+      readonly num_turns?: number
       readonly tokens?: TokenUsage
-      readonly costUsd?: number
-      readonly resultText?: string
-      readonly blockedReason?: string
+      readonly cost_usd?: number
+      readonly result_text?: string
+      readonly blocked_reason?: string
     }
 
 export type AgentStatus = 'online' | 'offline' | 'busy'
@@ -95,129 +95,129 @@ export type DigestDecision = 'pending' | 'approved' | 'rejected'
 export interface Cookbook {
   readonly id: string
   readonly name: string
-  readonly ownerId: string
-  readonly createdAt: string
+  readonly owner_id: string
+  readonly created_at: string
 }
 
 export interface Recipe {
   readonly id: string
   readonly name: string
-  readonly repoUrl: string
-  readonly defaultBranch: string
-  readonly createdBy: string
-  readonly createdAt: string
-  readonly cookbookId: string
+  readonly repo_url: string
+  readonly default_branch: string
+  readonly created_by: string
+  readonly created_at: string
+  readonly cookbook_id: string
 }
 
 export interface RecipeMember {
   readonly id: string
-  readonly recipeId: string
-  readonly actorId: string
-  readonly actorType: 'human' | 'agent'
+  readonly recipe_id: string
+  readonly actor_id: string
+  readonly actor_type: 'human' | 'agent'
   readonly role: Role
-  readonly joinedAt: string
+  readonly joined_at: string
 }
 
 export interface AgentPresence {
-  readonly agentId: string
-  readonly cookbookId: string
-  readonly displayName: string
+  readonly agent_id: string
+  readonly cookbook_id: string
+  readonly display_name: string
   readonly capabilities: readonly string[]
   readonly status: AgentStatus
-  readonly lastHeartbeatAt: string
-  readonly currentTaskId: string | null
-  readonly ownerUsername: string | null
-  readonly mintTxHash: string | null
-  readonly mintTokenId: number | null
+  readonly last_heartbeat_at: string
+  readonly current_task_id: string | null
+  readonly owner_username: string | null
+  readonly mint_tx_hash: string | null
+  readonly mint_token_id: number | null
 }
 
 export interface Bundle {
   readonly id: string
-  readonly recipeId: string
+  readonly recipe_id: string
   readonly prompt: string
   readonly status: BundleStatus
-  readonly createdBy: string
-  readonly createdAt: string
-  readonly claimedAt: string | null
-  readonly cookedAt: string | null
-  readonly digestedAt: string | null
-  readonly blockedReason: string | null
+  readonly created_by: string
+  readonly created_at: string
+  readonly claimed_at: string | null
+  readonly cooked_at: string | null
+  readonly digested_at: string | null
+  readonly blocked_reason: string | null
   /** Validated pydantic-graph source attached by the planner. Null until
    *  the planner POSTs back to /bundles/{id}/graph. */
-  readonly graphCode: string | null
+  readonly graph_code: string | null
   /** Mermaid flowchart rendered from the validated graph. Null until
    *  the bundle has graph_code attached. */
-  readonly graphMermaid: string | null
+  readonly graph_mermaid: string | null
 }
 
 export interface Task {
   readonly id: string
-  readonly bundleId: string
+  readonly bundle_id: string
   readonly title: string
   readonly description: string | null
   readonly status: TaskStatus
-  readonly dependsOnTaskIds: readonly string[]
-  readonly claimedByAgentId: string | null
-  readonly claimedAt: string | null
-  readonly completedAt: string | null
-  readonly blockedReason: string | null
+  readonly depends_on_task_ids: readonly string[]
+  readonly claimed_by_agent_id: string | null
+  readonly claimed_at: string | null
+  readonly completed_at: string | null
+  readonly blocked_reason: string | null
   /** The graph step id this task corresponds to (e.g. "scope", "implement").
    *  Set by BundleService.attach_graph_artifact when the task is created
    *  from a graph node. Null for tasks created outside the graph flow. */
-  readonly graphNodeId: string | null
+  readonly graph_node_id: string | null
 }
 
 export interface FactRef {
   readonly id: string
   readonly claim: string
-  readonly sourceUrl: string | null
-  readonly sourceTitle: string | null
-  readonly capturedBy: string
+  readonly source_url: string | null
+  readonly source_title: string | null
+  readonly captured_by: string
   readonly confidence: number | null
 }
 
 export interface CodeRef {
-  readonly repoUrl: string
+  readonly repo_url: string
   readonly branch: string
-  readonly commitSha: string
+  readonly commit_sha: string
   readonly paths: readonly string[]
 }
 
 export interface Event {
   readonly id: string
-  readonly recipeId: string
-  readonly bundleId: string | null
-  readonly taskId: string | null
+  readonly recipe_id: string
+  readonly bundle_id: string | null
+  readonly task_id: string | null
   readonly type: EventType
-  readonly actorId: string
-  readonly actorType: ActorType
+  readonly actor_id: string
+  readonly actor_type: ActorType
   readonly body: string
   readonly payload: EventPayload | null
   readonly sequence: number
   readonly facts: readonly FactRef[]
-  readonly codeRefs: readonly CodeRef[]
-  readonly createdAt: string
-  readonly expiresAt: string | null
+  readonly code_refs: readonly CodeRef[]
+  readonly created_at: string
+  readonly expires_at: string | null
 }
 
 export interface DigestTaskResult {
-  readonly taskId: string
+  readonly task_id: string
   readonly outcome: string
 }
 
 export interface Digest {
   readonly id: string
-  readonly recipeId: string
-  readonly bundleId: string
+  readonly recipe_id: string
+  readonly bundle_id: string
   readonly summary: string
-  readonly taskResults: readonly DigestTaskResult[]
+  readonly task_results: readonly DigestTaskResult[]
   readonly facts: readonly FactRef[]
-  readonly codeRefs: readonly CodeRef[]
-  readonly submittedBy: string
-  readonly submittedAt: string
+  readonly code_refs: readonly CodeRef[]
+  readonly submitted_by: string
+  readonly submitted_at: string
   readonly decision: DigestDecision
-  readonly decidedBy: string | null
-  readonly decidedAt: string | null
+  readonly decided_by: string | null
+  readonly decided_at: string | null
 }
 
 export interface BundleWithDetails {
@@ -229,13 +229,13 @@ export interface BundleWithDetails {
 
 export interface RecipeSummary {
   readonly recipe: Recipe
-  readonly memberCount: number
-  readonly agentCount: number
-  readonly onlineAgentCount: number
-  readonly activeBundleCount: number
+  readonly member_count: number
+  readonly agent_count: number
+  readonly online_agent_count: number
+  readonly active_bundle_count: number
   readonly owners: readonly string[]
-  readonly activeBundle: Bundle | null
-  readonly latestDigest: Digest | null
+  readonly active_bundle: Bundle | null
+  readonly latest_digest: Digest | null
 }
 
 export interface CookbookGroup {
@@ -246,7 +246,7 @@ export interface CookbookGroup {
 
 export interface CookbookData {
   readonly cookbooks: readonly CookbookGroup[]
-  readonly selectedRecipeId: string | null
+  readonly selected_recipe_id: string | null
 }
 
 export interface WorkspaceData {
@@ -254,14 +254,14 @@ export interface WorkspaceData {
   readonly members: readonly RecipeMember[]
   readonly agents: readonly AgentPresence[]
   readonly bundles: readonly Bundle[]
-  readonly recentDigests: readonly Digest[]
-  readonly selectedBundleId: string | null
-  readonly selectedBundle: BundleWithDetails | null
+  readonly recent_digests: readonly Digest[]
+  readonly selected_bundle_id: string | null
+  readonly selected_bundle: BundleWithDetails | null
 }
 
 export interface DigestReviewData {
   readonly recipe: Recipe
-  readonly selectedBundle: BundleWithDetails
+  readonly selected_bundle: BundleWithDetails
 }
 
 export interface HistoryRecord {
@@ -270,9 +270,9 @@ export interface HistoryRecord {
 }
 
 export interface HistoryMetrics {
-  readonly approvedCount: number
-  readonly medianReviewMinutes: number | null
-  readonly mostRecentApprovalAt: string | null
+  readonly approved_count: number
+  readonly median_review_minutes: number | null
+  readonly most_recent_approval_at: string | null
 }
 
 export interface HistoryData {
@@ -290,21 +290,21 @@ export interface CookbookDetailData {
 
 export interface CreateRecipeInput {
   readonly name: string
-  readonly repoUrl: string
-  readonly defaultBranch: string
-  readonly createdBy: string
-  readonly cookbookId: string
+  readonly repo_url: string
+  readonly default_branch: string
+  readonly created_by: string
+  readonly cookbook_id: string
 }
 
 export interface CreateBundleInput {
   readonly prompt: string
-  readonly requestedBy: string
-  readonly taskTitles: readonly string[]
+  readonly requested_by: string
+  readonly task_titles: readonly string[]
 }
 
 export interface DecisionInput {
   readonly decision: Exclude<DigestDecision, 'pending'>
-  readonly decidedBy: string
+  readonly decided_by: string
   readonly note?: string
 }
 

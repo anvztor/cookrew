@@ -73,8 +73,8 @@ export function WorkspaceScreen({ recipeId }: WorkspaceScreenProps) {
     void load(bundleIdFromUrl, true)
   }, [bundleIdFromUrl, load])
 
-  const selectedBundle = data?.selectedBundle ?? null
-  const selectedBundleId = data?.selectedBundleId ?? null
+  const selectedBundle = data?.selected_bundle ?? null
+  const selectedBundleId = data?.selected_bundle_id ?? null
   const allBundles = data?.bundles ?? []
 
   const handleSelectBundle = useCallback(
@@ -86,10 +86,9 @@ export function WorkspaceScreen({ recipeId }: WorkspaceScreenProps) {
 
   const handleCancelBundle = useCallback(
     async (bundleId: string) => {
-      // Cancel via krewhub PATCH (through BFF proxy would be ideal,
-      // but for now we just reload after navigation)
+      // Cancel via krewhub PATCH /api/v1/bundles/{bundle_id}
       try {
-        await fetch(`/api/recipes/${recipeId}/bundles/${bundleId}/cancel`, { method: 'POST' })
+        await fetch(`/api/v1/bundles/${bundleId}`, { method: 'PATCH', credentials: 'include' })
       } catch {
         // Ignore — the bundle list will refresh via watch
       }
@@ -133,11 +132,11 @@ export function WorkspaceScreen({ recipeId }: WorkspaceScreenProps) {
         query.length === 0
           ? true
           : matchesQuery(query, [
-              event.actorId,
+              event.actor_id,
               event.type,
               event.body,
               ...event.facts.map((fact) => fact.claim),
-              ...event.codeRefs.flatMap((codeRef) => codeRef.paths),
+              ...event.code_refs.flatMap((codeRef) => codeRef.paths),
             ])
       )
     : []
@@ -147,8 +146,8 @@ export function WorkspaceScreen({ recipeId }: WorkspaceScreenProps) {
       : matchesQuery(query, [
           task.title,
           task.status,
-          task.blockedReason ?? '',
-          task.dependsOnTaskIds.join(' '),
+          task.blocked_reason ?? '',
+          task.depends_on_task_ids.join(' '),
         ])
   )
   const visibleDependencies = allDependencies.filter((dependency) =>
@@ -167,7 +166,7 @@ export function WorkspaceScreen({ recipeId }: WorkspaceScreenProps) {
   const warningCount =
     allTasks.filter((task) => task.status === 'blocked').length +
     allDependencies.filter((dependency) => dependency.status === 'pending').length +
-    (selectedBundle?.bundle.blockedReason ? 1 : 0)
+    (selectedBundle?.bundle.blocked_reason ? 1 : 0)
 
   async function handleBundleCreate() {
     if (!authenticated) {
@@ -190,15 +189,15 @@ export function WorkspaceScreen({ recipeId }: WorkspaceScreenProps) {
         .filter(Boolean)
       const result = await createBundle(recipeId, {
         prompt: prompt.trim(),
-        requestedBy,
-        taskTitles,
+        requested_by: requestedBy,
+        task_titles: taskTitles,
       })
 
       setPrompt('')
       setTaskSeedText('')
       setShowTaskSeeds(false)
-      router.replace(`/recipes/${recipeId}?bundle=${result.bundleId}`)
-      await load(result.bundleId, false)
+      router.replace(`/recipes/${recipeId}?bundle=${result.bundle_id}`)
+      await load(result.bundle_id, false)
     } catch (submissionError) {
       setError(
         submissionError instanceof Error
@@ -226,7 +225,7 @@ export function WorkspaceScreen({ recipeId }: WorkspaceScreenProps) {
 
     try {
       const result = await rerunBundle(recipeId, selectedBundle.bundle.id)
-      await load(result.bundleId, false)
+      await load(result.bundle_id, false)
     } catch (submissionError) {
       setError(
         submissionError instanceof Error
@@ -448,10 +447,10 @@ function MobileWorkspace(props: {
           const activity = readAgentActivity(agent)
           const dotColor = agent.status === 'online' ? 'bg-[#10B981]' : agent.status === 'busy' ? 'bg-[#9333EA]' : 'bg-[#A8A29E]'
           return (
-            <div key={agent.agentId} className="flex flex-shrink-0 items-center gap-1.5 rounded-full border border-[#E7E5E4] bg-white px-2.5 py-1">
+            <div key={agent.agent_id} className="flex flex-shrink-0 items-center gap-1.5 rounded-full border border-[#E7E5E4] bg-white px-2.5 py-1">
               <span className={`h-2 w-2 rounded-full ${dotColor}`} />
               <Bot size={12} className={tone.iconClassName} />
-              <span className="text-[11px] font-medium text-[#2D2A20]">{agent.displayName}</span>
+              <span className="text-[11px] font-medium text-[#2D2A20]">{agent.display_name}</span>
               <span className="text-[10px] text-[#57534E]">{activity}</span>
             </div>
           )

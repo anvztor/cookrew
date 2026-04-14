@@ -233,7 +233,7 @@ function ToolCallCard({
           >
             {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </button>
-          <TimeStamp value={anchor.createdAt} />
+          <TimeStamp value={anchor.created_at} />
         </div>
       </div>
 
@@ -362,7 +362,7 @@ function ThinkingCard({
             {expanded ? 'hide' : 'show'}
             {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
           </button>
-          <TimeStamp value={first.createdAt} />
+          <TimeStamp value={first.created_at} />
         </div>
       </div>
       {!expanded ? (

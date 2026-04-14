@@ -50,7 +50,7 @@ export function CookbookScreen() {
         }
 
         setData(nextData)
-        setSelectedRecipeId((current) => current ?? nextData.selectedRecipeId)
+        setSelectedRecipeId((current) => current ?? nextData.selected_recipe_id)
       } catch (loadError) {
         if (!isMounted) {
           return
@@ -83,12 +83,12 @@ export function CookbookScreen() {
       summary.recipe.name
         .toLowerCase()
         .includes(deferredSearch.trim().toLowerCase()) ||
-      summary.recipe.repoUrl
+      summary.recipe.repo_url
         .toLowerCase()
         .includes(deferredSearch.trim().toLowerCase())
 
     const matchesStatus =
-      statusFilter === 'all' || summary.activeBundle?.status === statusFilter
+      statusFilter === 'all' || summary.active_bundle?.status === statusFilter
 
     return matchesSearch && matchesStatus
   }
@@ -157,7 +157,7 @@ export function CookbookScreen() {
                         {selectedSummary.recipe.name}
                       </p>
                       <p className="tiny-copy mt-1 break-all">
-                        {selectedSummary.recipe.repoUrl}
+                        {selectedSummary.recipe.repo_url}
                       </p>
                       {selectedCookbook ? (
                         <p className="tiny-copy mt-1 flex items-center gap-1">
@@ -172,14 +172,14 @@ export function CookbookScreen() {
                     <div className="flex flex-col gap-[6px] border border-border-strong bg-bg-surface p-3">
                       <p className="text-[13px] font-bold text-text-primary">Default Branch</p>
                       <p className="text-[18px] font-bold text-text-primary">
-                        {selectedSummary.recipe.defaultBranch}
+                        {selectedSummary.recipe.default_branch}
                       </p>
                     </div>
                     <div className="flex flex-col gap-[6px] border border-border-strong bg-bg-surface p-3">
                       <p className="text-[13px] font-bold text-text-primary">Last Digest</p>
                       <p className="text-[14px] font-bold text-text-primary">
-                        {selectedSummary.latestDigest
-                          ? formatRelativeTime(selectedSummary.latestDigest.submittedAt)
+                        {selectedSummary.latest_digest
+                          ? formatRelativeTime(selectedSummary.latest_digest.submitted_at)
                           : 'No approved digest yet'}
                       </p>
                     </div>
@@ -212,10 +212,10 @@ export function CookbookScreen() {
                     ) : (
                       <div className="flex flex-col gap-[6px] border border-border-strong bg-bg-surface p-3">
                         <p className="text-[28px] font-bold text-text-primary">
-                          {selectedSummary.onlineAgentCount}
+                          {selectedSummary.online_agent_count}
                         </p>
                         <p className="tiny-copy mt-1">
-                          active right now out of {selectedSummary.agentCount}
+                          active right now out of {selectedSummary.agent_count}
                         </p>
                       </div>
                     )}
@@ -263,14 +263,14 @@ export function CookbookScreen() {
               </div>
             )}
 
-            {selectedSummary?.latestDigest ? (
+            {selectedSummary?.latest_digest ? (
               <div className="mt-4 panel p-4">
                 <p className="text-[18px] font-bold text-text-primary">Latest Approved Digest</p>
                 <p className="font-medium">
-                  {truncateText(selectedSummary.latestDigest.summary, 220)}
+                  {truncateText(selectedSummary.latest_digest.summary, 220)}
                 </p>
                 <p className="tiny-copy mt-2">
-                  Submitted {formatTimestamp(selectedSummary.latestDigest.submittedAt)}
+                  Submitted {formatTimestamp(selectedSummary.latest_digest.submitted_at)}
                 </p>
               </div>
             ) : null}
@@ -316,7 +316,7 @@ function CookbookGroupCard({
               {' · '}
               {onlineCount} agent{onlineCount === 1 ? '' : 's'} online
               {' · '}
-              owner: {group.cookbook.ownerId}
+              owner: {group.cookbook.owner_id}
             </p>
           </div>
         </Link>
@@ -325,11 +325,11 @@ function CookbookGroupCard({
             .filter((a) => a.status !== 'offline')
             .map((agent) => (
               <span
-                key={agent.agentId}
+                key={agent.agent_id}
                 className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-1 text-[11px] font-medium text-emerald-700"
               >
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                {agent.displayName}
+                {agent.display_name}
               </span>
             ))}
         </div>
@@ -364,8 +364,8 @@ function RecipeRows({
   return (
     <div>
       {recipes.map((summary) => {
-        const bundleLink = summary.activeBundle
-          ? `/recipes/${summary.recipe.id}?bundle=${summary.activeBundle.id}`
+        const bundleLink = summary.active_bundle
+          ? `/recipes/${summary.recipe.id}?bundle=${summary.active_bundle.id}`
           : `/recipes/${summary.recipe.id}`
 
         return (
@@ -383,18 +383,18 @@ function RecipeRows({
             >
               <p className="font-semibold">{summary.recipe.name}</p>
               <p className="tiny-copy mt-1">
-                {truncateText(summary.recipe.repoUrl, 58)}
+                {truncateText(summary.recipe.repo_url, 58)}
               </p>
               <p className="tiny-copy mt-2">
-                {summary.memberCount} members · {summary.agentCount}{' '}
-                agents · {summary.activeBundleCount} active bundles
+                {summary.member_count} members · {summary.agent_count}{' '}
+                agents · {summary.active_bundle_count} active bundles
               </p>
             </button>
 
             <div>
-              {summary.activeBundle ? (
+              {summary.active_bundle ? (
                 <BundleStatusBadge
-                  status={summary.activeBundle.status}
+                  status={summary.active_bundle.status}
                 />
               ) : (
                 <span className="tiny-copy">No active bundle</span>
@@ -402,13 +402,13 @@ function RecipeRows({
             </div>
 
             <div className="text-sm font-medium">
-              {summary.owners[0] ?? summary.recipe.createdBy}
+              {summary.owners[0] ?? summary.recipe.created_by}
             </div>
 
             <div className="tiny-copy">
-              {summary.latestDigest
-                ? formatRelativeTime(summary.latestDigest.submittedAt)
-                : formatRelativeTime(summary.recipe.createdAt)}
+              {summary.latest_digest
+                ? formatRelativeTime(summary.latest_digest.submitted_at)
+                : formatRelativeTime(summary.recipe.created_at)}
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
@@ -440,14 +440,14 @@ function AgentList({ agents }: { agents: readonly AgentPresence[] }) {
       {online.length > 0 ? (
         <div className="space-y-2">
           {online.map((agent) => (
-            <div key={agent.agentId} className="flex items-center justify-between border border-border-strong bg-bg-surface p-3">
+            <div key={agent.agent_id} className="flex items-center justify-between border border-border-strong bg-bg-surface p-3">
               <div className="flex items-center gap-2 min-w-0">
                 <span className="h-2 w-2 rounded-full bg-emerald-500 flex-shrink-0" />
                 <div className="min-w-0">
-                  <p className="text-[13px] font-medium">{agent.displayName}</p>
+                  <p className="text-[13px] font-medium">{agent.display_name}</p>
                   <p className="tiny-copy">
                     {agent.status === 'busy' ? 'Working' : 'Online'}
-                    {agent.currentTaskId ? ` on ${agent.currentTaskId}` : ''}
+                    {agent.current_task_id ? ` on ${agent.current_task_id}` : ''}
                   </p>
                 </div>
               </div>
@@ -475,7 +475,7 @@ function MintAgentsInline() {
   useEffect(() => {
     const fetchOps = async () => {
       try {
-        const resp = await fetch('/api/mint-ops')
+        const resp = await fetch('/api/v1/mint-ops', { credentials: 'include' })
         if (resp.ok) setOps(await resp.json())
       } catch { /* ignore */ }
     }
@@ -493,9 +493,10 @@ function MintAgentsInline() {
       const accounts = await (window as any).ethereum.request({ method: 'eth_requestAccounts' })
       // For now, just confirm each op (actual handleOps call is in mint-agents-panel.tsx)
       for (const op of ops) {
-        await fetch('/api/mint-ops', {
+        await fetch('/api/v1/mint-ops', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({ action: 'confirm', mint_id: op.id }),
         })
       }

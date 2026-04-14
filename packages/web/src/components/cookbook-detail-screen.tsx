@@ -66,7 +66,7 @@ export function CookbookDetailScreen({ cookbookId }: { cookbookId: string }) {
     const q = deferredSearch.trim().toLowerCase()
     return (
       summary.recipe.name.toLowerCase().includes(q) ||
-      summary.recipe.repoUrl.toLowerCase().includes(q)
+      summary.recipe.repo_url.toLowerCase().includes(q)
     )
   })
 
@@ -174,7 +174,7 @@ function Sidebar({
   const [sessionUsername, setSessionUsername] = useState<string | null>(null)
 
   useEffect(() => {
-    fetch('/api/auth/me').then(r => r.ok ? r.json() : null).then(d => {
+    fetch('/auth/me', { credentials: 'include' }).then(r => r.ok ? r.json() : null).then(d => {
       if (d?.authenticated) {
         setSessionUsername(d.username ?? null)
       }
@@ -188,8 +188,8 @@ function Sidebar({
   const seenActors = new Set<string>()
   const uniqueMembers: RecipeMember[] = []
   for (const m of members) {
-    if (!seenActors.has(m.actorId)) {
-      seenActors.add(m.actorId)
+    if (!seenActors.has(m.actor_id)) {
+      seenActors.add(m.actor_id)
       uniqueMembers.push(m)
     }
   }
@@ -215,7 +215,7 @@ function Sidebar({
       <div className="flex flex-col gap-3.5 border border-border-strong bg-bg-surface p-4">
         <p className="text-[14px] font-bold text-text-primary">Team</p>
         {uniqueMembers.map((member) => (
-          <MemberRow key={member.actorId} member={member} />
+          <MemberRow key={member.actor_id} member={member} />
         ))}
         {uniqueMembers.length === 0 ? (
           <p className="text-[13px] text-text-secondary">No team members</p>
@@ -231,10 +231,10 @@ function Sidebar({
           </span>
         </div>
         {onlineAgents.map((agent) => (
-          <AgentRow key={agent.agentId} agent={agent} online sessionUsername={sessionUsername} />
+          <AgentRow key={agent.agent_id} agent={agent} online sessionUsername={sessionUsername} />
         ))}
         {offlineAgents.map((agent) => (
-          <AgentRow key={agent.agentId} agent={agent} online={false} sessionUsername={sessionUsername} />
+          <AgentRow key={agent.agent_id} agent={agent} online={false} sessionUsername={sessionUsername} />
         ))}
         {agents.length === 0 ? (
           <p className="text-[13px] text-text-secondary">No agents registered</p>
@@ -246,7 +246,7 @@ function Sidebar({
 
 function MemberRow({ member }: { member: RecipeMember }) {
   const isOwner = member.role === 'owner'
-  const isOffline = member.actorType === 'agent'
+  const isOffline = member.actor_type === 'agent'
 
   // Dot colors matching the design
   // Owner: yellow (#FFD600), online members: teal (#7EB5A6), offline: gray (#4D4D4D)
@@ -263,8 +263,8 @@ function MemberRow({ member }: { member: RecipeMember }) {
       : 'text-text-secondary'
 
   const label = isOwner
-    ? `${member.actorId} (owner)`
-    : member.actorId
+    ? `${member.actor_id} (owner)`
+    : member.actor_id
 
   return (
     <div className="flex items-center gap-2.5">
@@ -317,8 +317,8 @@ function RecipeRow({
   summary: RecipeSummary
   isLast: boolean
 }) {
-  const bundleLink = summary.activeBundle
-    ? `/recipes/${summary.recipe.id}?bundle=${summary.activeBundle.id}`
+  const bundleLink = summary.active_bundle
+    ? `/recipes/${summary.recipe.id}?bundle=${summary.active_bundle.id}`
     : `/recipes/${summary.recipe.id}`
 
   const status = recipeStatus(summary)
@@ -335,7 +335,7 @@ function RecipeRow({
           {summary.recipe.name}
         </span>
         <span className="text-[12px] text-text-secondary">
-          {summary.recipe.repoUrl}
+          {summary.recipe.repo_url}
         </span>
       </div>
 
@@ -346,14 +346,14 @@ function RecipeRow({
 
       {/* Owner column */}
       <span className="w-[120px] text-[13px] text-text-secondary">
-        {summary.owners[0] ?? summary.recipe.createdBy}
+        {summary.owners[0] ?? summary.recipe.created_by}
       </span>
 
       {/* Last Updated column */}
       <span className="w-[140px] text-[13px] text-text-secondary">
-        {summary.latestDigest
-          ? formatRelativeTime(summary.latestDigest.submittedAt)
-          : formatRelativeTime(summary.recipe.createdAt)}
+        {summary.latest_digest
+          ? formatRelativeTime(summary.latest_digest.submitted_at)
+          : formatRelativeTime(summary.recipe.created_at)}
       </span>
 
       {/* Actions column */}
@@ -370,10 +370,10 @@ function RecipeRow({
 type RecipeStatusLabel = 'active' | 'draft' | 'archived'
 
 function recipeStatus(summary: RecipeSummary): RecipeStatusLabel {
-  if (summary.activeBundleCount > 0) {
+  if (summary.active_bundle_count > 0) {
     return 'active'
   }
-  if (summary.latestDigest) {
+  if (summary.latest_digest) {
     return 'archived'
   }
   return 'draft'
@@ -396,11 +396,11 @@ function RecipeStatusBadge({ status }: { status: RecipeStatusLabel }) {
 }
 
 function AgentRow({ agent, online, sessionUsername }: { agent: AgentPresence; online: boolean; sessionUsername: string | null }) {
-  const isMyAgent = sessionUsername != null && agent.ownerUsername === sessionUsername
-  const agentOwner = agent.ownerUsername || 'unknown'
+  const isMyAgent = sessionUsername != null && agent.owner_username === sessionUsername
+  const agentOwner = agent.owner_username || 'unknown'
   const [minting, setMinting] = useState(false)
-  const [mintTx, setMintTx] = useState<string | null>(agent.mintTxHash)
-  const [mintTokenId, setMintTokenId] = useState<number | null>(agent.mintTokenId)
+  const [mintTx, setMintTx] = useState<string | null>(agent.mint_tx_hash)
+  const [mintTokenId, setMintTokenId] = useState<number | null>(agent.mint_token_id)
   const [error, setError] = useState<string | null>(null)
 
   const isMinted = mintTx != null
@@ -417,11 +417,11 @@ function AgentRow({ agent, online, sessionUsername }: { agent: AgentPresence; on
       const accounts = await eth.request({ method: 'eth_requestAccounts' }) as string[]
       const from = accounts[0]
 
-      const agentShortName = agent.agentId.split('@')[0]
+      const agentShortName = agent.agent_id.split('@')[0]
       const agentURI = JSON.stringify({
         type: 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1',
-        name: agent.displayName,
-        description: `${agent.displayName} on Cookrew`,
+        name: agent.display_name,
+        description: `${agent.display_name} on Cookrew`,
         active: true,
         services: [{ name: 'A2A', endpoint: `https://hub.cookrew.dev/a2a/${agentOwner}/${agentShortName}` }],
       })
@@ -443,9 +443,10 @@ function AgentRow({ agent, online, sessionUsername }: { agent: AgentPresence; on
 
       // Persist mint status to krewhub
       try {
-        await fetch(`/api/cookbooks/${agent.cookbookId}/agents/${encodeURIComponent(agent.agentId)}/mint`, {
+        await fetch(`/api/v1/agents/${encodeURIComponent(agent.agent_id)}/mint`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({ tx_hash: txHash }),
         })
       } catch { /* best-effort persist */ }
@@ -465,7 +466,7 @@ function AgentRow({ agent, online, sessionUsername }: { agent: AgentPresence; on
         <div className="flex items-center gap-2.5">
           <span className={`h-2 w-2 flex-shrink-0 rounded-full ${dotColor}`} />
           <span className={`font-mono text-[12px] font-medium ${nameColor}`}>
-            {agent.displayName}
+            {agent.display_name}
           </span>
           <span className="text-[10px] text-[#A8A29E]">@{agentOwner}</span>
           {!online && <span className="text-[11px] text-[#A8A29E]">offline</span>}
@@ -507,7 +508,7 @@ function AgentRow({ agent, online, sessionUsername }: { agent: AgentPresence; on
             NFT
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-semibold text-emerald-800">{agent.displayName}</p>
+            <p className="text-[11px] font-semibold text-emerald-800">{agent.display_name}</p>
             <p className="text-[10px] text-emerald-600 font-mono truncate">
               {mintTx.slice(0, 10)}...{mintTx.slice(-8)}
             </p>
