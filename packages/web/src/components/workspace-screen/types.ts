@@ -74,6 +74,7 @@ export interface WorkspaceCenterPaneProps {
   readonly onCreateBundle: () => void
   readonly onToggleTaskSeeds: () => void
   readonly prompt: string
+  readonly recipeId?: string
   readonly requestedBy: string
   readonly selectedAgent: AgentPresence | null
   readonly selectedBundle: BundleWithDetails | null

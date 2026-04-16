@@ -311,6 +311,7 @@ export function WorkspaceScreen({ recipeId }: WorkspaceScreenProps) {
               onCreateBundle={handleBundleCreate}
               onToggleTaskSeeds={() => setShowTaskSeeds((current) => !current)}
               prompt={prompt}
+              recipeId={recipeId}
               requestedBy={requestedBy}
               selectedAgent={selectedAgent}
               selectedBundle={selectedBundle}

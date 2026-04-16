@@ -15,6 +15,7 @@ import {
   joinClasses,
   WorkspaceBadge,
 } from './shared'
+import { TaskLiveFeed } from './task-live-feed'
 import { TerminalBlock } from './terminal-block'
 import type { WorkspaceCenterPaneProps } from './types'
 
@@ -53,6 +54,7 @@ export function WorkspaceCenterPane({
   onCreateBundle,
   onToggleTaskSeeds,
   prompt,
+  recipeId,
   requestedBy,
   selectedAgent,
   selectedBundle,
@@ -198,21 +200,27 @@ export function WorkspaceCenterPane({
           className="h-full overflow-y-auto px-5 py-4"
         >
           {selectedBundle ? (
-            visibleGroups.length > 0 ? (
-              <div className="flex flex-col gap-3">
-                {visibleGroups.map((group) => (
+            <div className="flex flex-col gap-3">
+              {recipeId && (
+                <TaskLiveFeed
+                  recipeId={recipeId}
+                  bundleId={selectedBundle.bundle.id}
+                />
+              )}
+              {visibleGroups.length > 0 ? (
+                visibleGroups.map((group) => (
                   <EventGroupCard key={group.key} group={group} />
-                ))}
-              </div>
-            ) : (
-              <EmptyWorkspaceState>
-                {hasQuery
-                  ? 'No feed events match that search yet.'
-                  : events.length > 0
-                  ? 'All matching events are hidden — re-enable a filter chip above.'
-                  : 'The active bundle does not have any events yet.'}
-              </EmptyWorkspaceState>
-            )
+                ))
+              ) : (
+                <EmptyWorkspaceState>
+                  {hasQuery
+                    ? 'No feed events match that search yet.'
+                    : events.length > 0
+                    ? 'All matching events are hidden — re-enable a filter chip above.'
+                    : 'The active bundle does not have any events yet.'}
+                </EmptyWorkspaceState>
+              )}
+            </div>
           ) : (
             <EmptyWorkspaceState>
               Create a bundle to populate the workspace feed and right sidebar.
