@@ -55,7 +55,9 @@ export function openWatchStream(
     if (channelFilter) params.set('channel', channelFilter)
 
     const url = `/api/v1/watch?${params.toString()}`
-    source = new EventSource(url)
+    // withCredentials=true sends the krew_session cookie through the
+    // Next.js rewrite proxy to krewhub. Required for browser auth.
+    source = new EventSource(url, { withCredentials: true })
 
     // Listen for all channel event names, plus the legacy resource
     // event types for backward compat with servers that don't emit
