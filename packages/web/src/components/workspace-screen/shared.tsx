@@ -7,7 +7,7 @@ export function buttonClassName(
   size: 'md' | 'sm' = 'md'
 ): string {
   return joinClasses(
-    'inline-flex items-center justify-center gap-2 rounded-[12px] border border-[#2D2A20] font-medium shadow-[4px_4px_0_#282623] transition-all duration-150 hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#282623] disabled:pointer-events-none disabled:translate-x-0 disabled:translate-y-0 disabled:opacity-60 disabled:shadow-none',
+    'inline-flex items-center justify-center gap-2  border border-[#2D2A20] font-bold uppercase tracking-[1px] shadow-[3px_3px_0_#2D2A20] transition-all duration-150 hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#282623] disabled:pointer-events-none disabled:translate-x-0 disabled:translate-y-0 disabled:opacity-60 disabled:shadow-none',
     tone === 'primary'
       ? 'bg-[#FFD600] text-[#5C4A1F]'
       : 'bg-[#FFFEF5] text-[#5C4A1F]',
@@ -43,7 +43,7 @@ export function WorkspaceBadge({
   return (
     <span
       className={joinClasses(
-        'inline-flex items-center rounded-[6px] border px-2 py-[2px] text-[12px] font-medium capitalize',
+        'inline-flex items-center  border px-2 py-[2px] text-[12px] font-medium capitalize',
         toneClassName(tone)
       )}
     >
@@ -64,7 +64,7 @@ export function WorkspaceEventBadge({
   return (
     <span
       className={joinClasses(
-        'inline-flex items-center gap-1 rounded-[6px] border px-2 py-[2px] text-[10px] font-semibold',
+        'inline-flex items-center gap-1  border px-2 py-[2px] text-[10px] font-semibold',
         toneClassName(tone)
       )}
     >

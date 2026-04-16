@@ -93,7 +93,7 @@ export function HistoryScreen({ recipeId }: HistoryScreenProps) {
         <header className="page-header">
           <div className="flex flex-col gap-1">
             <h1 className="page-title">
-              Cookrew / Approved Digest History
+              COOKREW / APPROVED DIGEST HISTORY
             </h1>
             <p className="text-[13px] font-medium text-text-secondary">
               Durable record only · Ephemeral events expire after 7 days

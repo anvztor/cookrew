@@ -268,20 +268,20 @@ export function DigestReviewScreen({
     <div className="flex min-h-screen flex-col bg-[#FAF8F4] font-sans text-[#2D2A20]">
       {/* Header */}
       <header className="flex items-center justify-between border-b border-[#2D2A20] bg-[#FFFEF5] px-5 py-4">
-        <h1 className="text-[22px] font-bold tracking-wide">
+        <h1 className="text-[22px] font-extrabold uppercase tracking-[2px]">
           COOKREW / DIGEST REVIEW
         </h1>
         <div className="flex items-center gap-3">
           {digest ? (
-            <span className="inline-flex items-center rounded-md border border-[#2D2A20] bg-[#FFD600] px-2 py-0.5 text-xs font-medium text-[#5C4A1F]">
+            <span className="inline-flex items-center  border border-[#2D2A20] bg-[#FFD600] px-2 py-0.5 text-xs font-medium text-[#5C4A1F]">
               Digest #{digest.id.slice(-4)}
             </span>
           ) : (
-            <span className="inline-flex items-center rounded-md border border-[#2D2A20] bg-[#FFD600] px-2 py-0.5 text-xs font-medium text-[#5C4A1F]">
+            <span className="inline-flex items-center  border border-[#2D2A20] bg-[#FFD600] px-2 py-0.5 text-xs font-medium text-[#5C4A1F]">
               Bundle {bundleId.slice(-6)}
             </span>
           )}
-          <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium ${
+          <span className={`inline-flex items-center  border px-2 py-0.5 text-xs font-medium ${
             digest ? decisionBadgeClasses(digest.decision) : 'bg-[#7EB5A6] text-white border-[#5A9A8A]'
           }`}>
             {digest ? decisionBadgeLabel(digest.decision) : 'Pending Review'}
@@ -366,7 +366,7 @@ export function DigestReviewScreen({
                         <span className="text-sm font-semibold">{task.title}</span>
                         <span className="text-xs text-[#57534E]">{outcome}</span>
                       </div>
-                      <span className={`inline-flex shrink-0 items-center rounded-md border px-2 py-0.5 text-xs font-medium ${taskBadgeClasses(task.status)}`}>
+                      <span className={`inline-flex shrink-0 items-center  border px-2 py-0.5 text-xs font-medium ${taskBadgeClasses(task.status)}`}>
                         {taskBadgeLabel(task.status)}
                       </span>
                     </div>
@@ -506,7 +506,7 @@ export function DigestReviewScreen({
                 type="button"
                 onClick={() => void handleDecision('approved')}
                 disabled={isSubmitting || !digest || digest.decision !== 'pending'}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#2D2A20] bg-[#FFD600] px-4 py-2.5 text-sm font-medium text-[#5C4A1F] shadow-[4px_4px_0_#282623] transition-all hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0_#282623] disabled:opacity-50 disabled:shadow-none disabled:hover:translate-x-0 disabled:hover:translate-y-0"
+                className="flex w-full items-center justify-center gap-2  border border-[#2D2A20] bg-[#FFD600] px-4 py-2.5 text-sm font-medium text-[#5C4A1F] shadow-[4px_4px_0_#282623] transition-all hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0_#282623] disabled:opacity-50 disabled:shadow-none disabled:hover:translate-x-0 disabled:hover:translate-y-0"
               >
                 <Check size={16} />
                 Approve Digest
@@ -515,7 +515,7 @@ export function DigestReviewScreen({
                 type="button"
                 onClick={() => void handleDecision('rejected')}
                 disabled={isSubmitting || !digest || digest.decision !== 'pending'}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#2D2A20] bg-[#FFFEF5] px-4 py-2.5 text-sm font-medium text-red-600 shadow-[4px_4px_0_#282623] transition-all hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0_#282623] disabled:opacity-50 disabled:shadow-none disabled:hover:translate-x-0 disabled:hover:translate-y-0"
+                className="flex w-full items-center justify-center gap-2  border border-[#2D2A20] bg-[#FFFEF5] px-4 py-2.5 text-sm font-medium text-red-600 shadow-[4px_4px_0_#282623] transition-all hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0_#282623] disabled:opacity-50 disabled:shadow-none disabled:hover:translate-x-0 disabled:hover:translate-y-0"
               >
                 <X size={16} />
                 Request Changes
@@ -524,7 +524,7 @@ export function DigestReviewScreen({
                 type="button"
                 onClick={() => router.push(`/recipes/${recipeId}`)}
                 disabled={isSubmitting}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#2D2A20] bg-[#FFFEF5] px-4 py-2.5 text-sm font-medium text-[#5C4A1F] shadow-[4px_4px_0_#282623] transition-all hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0_#282623] disabled:opacity-50 disabled:shadow-none disabled:hover:translate-x-0 disabled:hover:translate-y-0"
+                className="flex w-full items-center justify-center gap-2  border border-[#2D2A20] bg-[#FFFEF5] px-4 py-2.5 text-sm font-medium text-[#5C4A1F] shadow-[4px_4px_0_#282623] transition-all hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0_#282623] disabled:opacity-50 disabled:shadow-none disabled:hover:translate-x-0 disabled:hover:translate-y-0"
               >
                 <SkipForward size={16} />
                 Defer Decision
@@ -537,7 +537,7 @@ export function DigestReviewScreen({
                 <span className="text-[13px] font-bold">Decision History</span>
                 <div className="flex flex-col gap-0.5">
                   <div className="flex items-center gap-1.5">
-                    <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium ${decisionBadgeClasses(digest.decision)}`}>
+                    <span className={`inline-flex items-center  border px-2 py-0.5 text-[11px] font-medium ${decisionBadgeClasses(digest.decision)}`}>
                       {decisionBadgeLabel(digest.decision)}
                     </span>
                     <span className="text-[11px] text-[#57534E]">

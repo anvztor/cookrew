@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useEffectEvent, useReducer, useRef } from 'react'
+import { useEffect, useReducer, useRef } from 'react'
 
 import type { Event, Task, WatchEvent } from '@cookrew/shared'
 
@@ -161,57 +161,60 @@ export function useTaskStream(
 ): Readonly<Record<string, TaskLiveState>> {
   const [state, dispatch] = useReducer(reducer, { tasks: {} })
   const lastSeqRef = useRef(0)
-
-  const handleEvent = useEffectEvent((watch: WatchEvent) => {
-    const channel = (watch as WatchEvent).channel ?? ''
-    const resource = watch.resource_type
-    const obj = watch.object as Record<string, unknown>
-
-    // Filter to bundle if requested
-    if (options.bundleId) {
-      const bundleId =
-        (obj.bundle_id as string | undefined) ??
-        (obj.task_id && (obj as { bundle_id?: string }).bundle_id)
-      if (bundleId && bundleId !== options.bundleId) return
-    }
-
-    // Task row updates (status transitions, progress)
-    if (resource === 'task') {
-      const task = obj as TaskPayload
-      if (!task.id) return
-
-      if (channel === 'task:progress') {
-        const progress = (obj.progress as TaskProgress | undefined) ?? null
-        if (progress) {
-          dispatch({ kind: 'task_progress', taskId: task.id, progress })
-        }
-      } else {
-        dispatch({ kind: 'task_status', taskId: task.id, task })
-      }
-
-      // Terminal status — schedule removal after linger
-      if (task.status === 'done' || task.status === 'blocked' || task.status === 'cancelled') {
-        const linger = options.terminalLingerMs ?? 5000
-        if (linger > 0) {
-          setTimeout(() => dispatch({ kind: 'task_removed', taskId: task.id }), linger)
-        } else {
-          dispatch({ kind: 'task_removed', taskId: task.id })
-        }
-      }
-    }
-
-    // Nested event rows (tool_use, tool_result, thinking, etc.)
-    if (resource === 'event') {
-      const event = obj as unknown as Event
-      if (!event.task_id) return
-      dispatch({ kind: 'task_event', taskId: event.task_id, event, seq: watch.seq })
-    }
-  })
+  const optionsRef = useRef(options)
+  optionsRef.current = options
 
   useEffect(() => {
     if (!recipeId) {
       dispatch({ kind: 'clear' })
       return
+    }
+
+    const handleEvent = (watch: WatchEvent) => {
+      const channel = (watch as WatchEvent).channel ?? ''
+      const resource = watch.resource_type
+      const obj = watch.object as Record<string, unknown>
+      const opts = optionsRef.current
+
+      // Filter to bundle if requested
+      if (opts.bundleId) {
+        const bundleId =
+          (obj.bundle_id as string | undefined) ??
+          (obj.task_id && (obj as { bundle_id?: string }).bundle_id)
+        if (bundleId && bundleId !== opts.bundleId) return
+      }
+
+      // Task row updates (status transitions, progress)
+      if (resource === 'task') {
+        const task = obj as TaskPayload
+        if (!task.id) return
+
+        if (channel === 'task:progress') {
+          const progress = (obj.progress as TaskProgress | undefined) ?? null
+          if (progress) {
+            dispatch({ kind: 'task_progress', taskId: task.id, progress })
+          }
+        } else {
+          dispatch({ kind: 'task_status', taskId: task.id, task })
+        }
+
+        // Terminal status — schedule removal after linger
+        if (task.status === 'done' || task.status === 'blocked' || task.status === 'cancelled') {
+          const linger = opts.terminalLingerMs ?? 5000
+          if (linger > 0) {
+            setTimeout(() => dispatch({ kind: 'task_removed', taskId: task.id }), linger)
+          } else {
+            dispatch({ kind: 'task_removed', taskId: task.id })
+          }
+        }
+      }
+
+      // Nested event rows (tool_use, tool_result, thinking, etc.)
+      if (resource === 'event') {
+        const event = obj as unknown as Event
+        if (!event.task_id) return
+        dispatch({ kind: 'task_event', taskId: event.task_id, event, seq: watch.seq })
+      }
     }
 
     // Subscribe to all task-scoped channels.

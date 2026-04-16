@@ -64,18 +64,36 @@ export function openWatchStream(
     const url = `${hubBase}/api/v1/watch?${params.toString()}`
     source = new EventSource(url, { withCredentials: true })
 
-    // Listen for all channel event names, plus the legacy resource
-    // event types for backward compat with servers that don't emit
-    // the channel field.
+    // EventSource delivers named events (`event: foo`) only to listeners
+    // registered for that specific name — `onmessage` fires solely for
+    // unnamed events. Since the server emits one event name per typed
+    // channel (e.g. `event: task:claimed`), we must register a listener
+    // for every known channel. Keep in sync with
+    // krewhub/services/watch_channels.py.
+    const CHANNEL_NAMES = [
+      // Task lifecycle
+      'task:added', 'task:claimed', 'task:working', 'task:completed',
+      'task:failed', 'task:cancelled', 'task:progress',
+      'task:message', 'task:session_start', 'task:session_end',
+      // Bundle lifecycle
+      'bundle:added', 'bundle:prompt', 'bundle:plan', 'bundle:claimed',
+      'bundle:cooked', 'bundle:blocked', 'bundle:cancelled', 'bundle:digested',
+      // Digest decisions
+      'digest:submitted', 'digest:approved', 'digest:rejected',
+      // Agent presence
+      'agent:added', 'agent:online', 'agent:offline', 'agent:busy',
+    ] as const
+    for (const name of CHANNEL_NAMES) {
+      source.addEventListener(name, handleMessage)
+    }
+
+    // Legacy resource event names for backward compat with servers
+    // that don't emit the channel field.
     source.onmessage = handleMessage
     source.addEventListener('ADDED', handleMessage)
     source.addEventListener('MODIFIED', handleMessage)
     source.addEventListener('DELETED', handleMessage)
     source.addEventListener('ping', () => {})
-    // Wildcard: listen for any typed channel via a generic handler.
-    // EventSource doesn't support wildcards natively, but any named
-    // event with registered listener fires. We catch all via onmessage
-    // above when `event:` header is missing; otherwise known names work.
 
     source.onerror = () => {
       if (closed) return

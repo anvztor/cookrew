@@ -79,7 +79,7 @@ export function CookbookDetailScreen({ cookbookId }: { cookbookId: string }) {
     <>
       {/* Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4 border-b border-border-strong bg-bg-surface px-4 sm:px-5 py-3">
-        <h1 className="text-[18px] font-bold text-text-primary">
+        <h1 className="text-[18px] font-extrabold uppercase tracking-[2px] text-text-primary">
           Cookbook
         </h1>
 
@@ -205,7 +205,7 @@ function Sidebar({
         <div className="flex items-center gap-2">
           <GitBranch size={14} className="text-[#9B8ACB]" />
           <span className="text-[13px] font-medium text-text-secondary">main</span>
-          <span className="inline-flex items-center rounded-md bg-[#7EB5A6] px-2 py-[2px] text-[12px] font-medium text-white ring-1 ring-inset ring-[#5A9A8A]">
+          <span className="inline-flex items-center  bg-[#7EB5A6] px-2 py-[2px] text-[12px] font-medium text-white ring-1 ring-inset ring-[#5A9A8A]">
             synced
           </span>
         </div>
@@ -226,7 +226,7 @@ function Sidebar({
       <div className="flex flex-col gap-3 border border-border-strong bg-bg-surface p-4">
         <div className="flex items-center justify-between">
           <p className="text-[14px] font-bold text-text-primary">Agents</p>
-          <span className="inline-flex items-center rounded-md bg-accent-primary px-2 py-[2px] text-[12px] font-medium text-[#5C4A1F] ring-1 ring-inset ring-border-strong">
+          <span className="inline-flex items-center  bg-accent-primary px-2 py-[2px] text-[12px] font-medium text-[#5C4A1F] ring-1 ring-inset ring-border-strong">
             {onlineAgents.length > 0 ? `${onlineAgents.length} active` : `${agents.length} registered`}
           </span>
         </div>
@@ -268,7 +268,7 @@ function MemberRow({ member }: { member: RecipeMember }) {
 
   return (
     <div className="flex items-center gap-2.5">
-      <span className={`h-2 w-2 flex-shrink-0 rounded-full ${dotColor}`} />
+      <span className={`h-2 w-2 flex-shrink-0  ${dotColor}`} />
       <span className={`text-[13px] ${textColor}`}>{label}</span>
     </div>
   )
@@ -388,7 +388,7 @@ function RecipeStatusBadge({ status }: { status: RecipeStatusLabel }) {
 
   return (
     <span
-      className={`inline-flex items-center rounded-md px-2 py-[2px] text-[12px] font-medium ring-1 ring-inset ${styles[status]}`}
+      className={`inline-flex items-center  px-2 py-[2px] text-[12px] font-medium ring-1 ring-inset ${styles[status]}`}
     >
       {status}
     </span>
@@ -463,7 +463,7 @@ function AgentRow({ agent, online, sessionUsername }: { agent: AgentPresence; on
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <span className={`h-2 w-2 flex-shrink-0 rounded-full ${dotColor}`} />
+          <span className={`h-2 w-2 flex-shrink-0  ${dotColor}`} />
           <span className={`font-mono text-[12px] font-medium ${nameColor}`}>
             {agent.displayName}
           </span>
@@ -476,7 +476,7 @@ function AgentRow({ agent, online, sessionUsername }: { agent: AgentPresence; on
               href={`https://explorer.testnet3.goat.network/tx/${mintTx}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded border border-emerald-300 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 hover:bg-emerald-100 transition-colors"
+              className="border border-emerald-300 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 hover:bg-emerald-100 transition-colors"
             >
               ERC-8004 {mintTokenId != null ? `#${mintTokenId}` : '✓'}
             </a>
@@ -485,12 +485,12 @@ function AgentRow({ agent, online, sessionUsername }: { agent: AgentPresence; on
               type="button"
               onClick={() => void handleMint()}
               disabled={minting}
-              className="rounded border border-amber-400 bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-800 hover:bg-amber-200 disabled:opacity-50 transition-colors cursor-pointer"
+              className="border border-amber-400 bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-800 hover:bg-amber-200 disabled:opacity-50 transition-colors cursor-pointer"
             >
               {minting ? 'Signing...' : 'Mint ERC-8004'}
             </button>
           ) : (
-            <span className="rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] text-gray-400">
+            <span className="border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] text-gray-400">
               not minted
             </span>
           )}
@@ -501,9 +501,9 @@ function AgentRow({ agent, online, sessionUsername }: { agent: AgentPresence; on
           href={`https://explorer.testnet3.goat.network/tx/${mintTx}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="ml-4 flex items-center gap-2 rounded-lg border border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50 p-2.5 hover:border-emerald-300 transition-colors"
+          className="ml-4 flex items-center gap-2  border border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50 p-2.5 hover:border-emerald-300 transition-colors"
         >
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-emerald-100 text-emerald-600 text-[14px] font-bold">
+          <div className="flex h-8 w-8 items-center justify-center  bg-emerald-100 text-emerald-600 text-[14px] font-bold">
             NFT
           </div>
           <div className="min-w-0 flex-1">

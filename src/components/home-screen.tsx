@@ -13,6 +13,7 @@ import { getCookbookData } from '@/lib/api'
 import { useAuthContext } from '@/components/auth-provider'
 import { SessionKeyPanel } from '@/components/session-key-panel'
 import { MintAgentsPanel } from '@/components/mint-agents-panel'
+import { CokrewIcon } from '@/components/cookrew-logo'
 import type { CookbookData, CookbookGroup } from '@/types'
 
 const CATEGORIES = ['All', 'Frontend', 'Backend', 'DevOps', 'AI/ML', 'Docs', 'Testing'] as const
@@ -53,15 +54,15 @@ export function HomeScreen() {
       {/* Hero section */}
       <section className="flex flex-col items-center gap-6 sm:gap-10 bg-[#FAF8F4] px-4 sm:px-8 lg:px-20 py-8 sm:py-14">
         <div className="flex flex-col items-center gap-4">
-          <span className="inline-flex items-center rounded-md bg-accent-primary px-2 py-[2px] text-[12px] font-medium text-[#5C4A1F] ring-1 ring-inset ring-border-strong">
-            Task Collaboration Platform
+          <CokrewIcon size={64} />
+          <span className="inline-flex items-center border-2 border-border-strong bg-accent-primary px-3 py-[3px] text-[12px] font-bold uppercase tracking-[2px] text-text-primary shadow-[2px_2px_0_#2D2A20]">
+            Agent Orchestration Platform
           </span>
-          <h1 className="text-center text-[24px] sm:text-[32px] lg:text-[40px] font-bold text-text-primary">
-            Welcome to Cookrew
+          <h1 className="text-center text-[24px] sm:text-[32px] lg:text-[40px] font-extrabold tracking-[1px] text-text-primary">
+            Welcome to COOKREW
           </h1>
           <p className="max-w-[700px] text-center text-[14px] sm:text-[16px] leading-[1.6] text-text-secondary">
-            A collaborative workspace where humans orchestrate AI agents on repositories.
-            Claim tasks, ship code, and earn bounty.
+            Bring your agents. Cook together. A land where everyone can bring their agents to the COOKREW ecosystem.
           </p>
         </div>
 
@@ -95,7 +96,7 @@ export function HomeScreen() {
       <section className="flex flex-1 flex-col gap-4 sm:gap-6 px-4 sm:px-8 lg:px-20 py-6 sm:py-8">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
           <h2 className="text-[20px] sm:text-[24px] font-bold text-text-primary">Explore Projects</h2>
-          <div className="flex w-full sm:w-[300px] items-center gap-2 rounded-[10px] border-[1.5px] border-border-strong bg-white px-3 h-[40px] sm:h-[36px]">
+          <div className="flex w-full sm:w-[300px] items-center gap-2 border-2 border-border-strong bg-white px-3 h-[40px] sm:h-[36px]">
             <Search size={16} className="text-[#78716C]" />
             <input
               value={search}
@@ -113,8 +114,8 @@ export function HomeScreen() {
               key={cat}
               type="button"
               onClick={() => setActiveCategory(cat)}
-              className={`rounded-xl border border-border-strong px-3 sm:px-4 py-2.5 sm:py-2 text-[13px] sm:text-[14px] font-medium text-[#5C4A1F] transition-colors ${
-                activeCategory === cat ? 'bg-accent-primary' : 'bg-bg-surface'
+              className={`border-2 border-border-strong px-3 sm:px-4 py-2.5 sm:py-2 text-[13px] sm:text-[14px] font-bold uppercase tracking-[1px] text-text-primary transition-all ${
+                activeCategory === cat ? 'bg-accent-primary shadow-[2px_2px_0_#2D2A20]' : 'bg-bg-surface'
               }`}
             >
               {cat}
@@ -157,14 +158,14 @@ function FeatureCard({
   description: string
 }) {
   return (
-    <div className="flex flex-1 flex-col rounded-xl border border-border-strong bg-bg-surface">
+    <div className="flex flex-1 flex-col border-2 border-border-strong bg-bg-surface shadow-[3px_3px_0_#2D2A20]">
       <div className="flex flex-col gap-3.5 p-5">
-        <div className={`flex h-12 w-12 items-center justify-center rounded-full border border-border-strong ${iconBg}`}>
+        <div className={`flex h-12 w-12 items-center justify-center border-2 border-border-strong ${iconBg}`}>
           {icon}
         </div>
-        <p className="text-[18px] font-semibold text-text-primary">{title}</p>
-        <p className="text-[13px] font-medium text-[#9B8ACB]">{subtitle}</p>
-        <p className="text-[13px] leading-[1.5] text-[#78716C]">{description}</p>
+        <p className="text-[18px] font-bold text-text-primary">{title}</p>
+        <p className="text-[13px] font-bold uppercase tracking-[1px] text-accent-secondary">{subtitle}</p>
+        <p className="text-[13px] leading-[1.5] text-text-secondary">{description}</p>
       </div>
     </div>
   )
@@ -196,7 +197,7 @@ function RealProjectGrid({
         <Link
           key={group.cookbook.id}
           href={`/cookbooks/${group.cookbook.id}`}
-          className="flex flex-col overflow-hidden rounded-xl border border-border-strong bg-bg-surface transition-transform hover:translate-y-[-2px]"
+          className="flex flex-col overflow-hidden border-2 border-border-strong bg-bg-surface shadow-[3px_3px_0_#2D2A20] transition-all hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[2px_2px_0_#2D2A20]"
         >
           <div
             className="relative flex h-[120px] items-center justify-center"
@@ -205,21 +206,24 @@ function RealProjectGrid({
             <span className="text-[48px]">
               {group.recipes.length > 0 ? '\uD83D\uDCCB' : '\uD83D\uDCC2'}
             </span>
-            <span className="absolute left-2 top-2 rounded-lg border-2 border-border-strong bg-bg-surface px-2 py-1 text-[10px] font-medium text-[#5C4A1F]">
+            <span className="absolute left-2 top-2 border-2 border-border-strong bg-bg-surface px-2 py-1 text-[10px] font-bold uppercase tracking-[1px] text-text-primary">
               {group.recipes.length} recipe{group.recipes.length === 1 ? '' : 's'}
             </span>
           </div>
           <div className="flex flex-col gap-2 p-3">
-            <p className="text-[14px] font-bold text-[#5C4A1F]">{group.cookbook.name}</p>
+            <p className="text-[14px] font-bold text-text-primary">{group.cookbook.name}</p>
+            <div className="flex items-center gap-1 text-[12px] font-semibold text-accent-secondary">
+              <Users size={12} />
+              <span>@{group.cookbook.ownerId}</span>
+            </div>
             <div className="flex items-center justify-between">
-              <span className="text-[12px] text-[#5C574D]">@{group.cookbook.ownerId}</span>
               <span className="flex items-center gap-1 text-[12px] font-semibold text-[#D97706]">
                 <Coins size={14} className="text-[#D97706]" />
                 {group.agents.length} agent{group.agents.length === 1 ? '' : 's'}
               </span>
             </div>
-            <div className="flex w-full items-center justify-center gap-2 rounded-xl border border-border-strong bg-accent-primary px-4 py-2.5 text-[12px] font-medium text-[#5C4A1F] shadow-[4px_4px_0_#282623]">
-              <UserPlus size={14} className="text-[#9B8ACB]" />
+            <div className="flex w-full items-center justify-center gap-2 border-2 border-border-strong bg-accent-primary px-4 py-2.5 text-[12px] font-bold uppercase tracking-[1px] text-text-primary shadow-[3px_3px_0_#2D2A20]">
+              <UserPlus size={14} className="text-accent-secondary" />
               Open
             </div>
           </div>
@@ -249,23 +253,23 @@ function SampleProjectGrid() {
 
 function ProjectCardUI({ project }: { project: ProjectCard }) {
   return (
-    <div className="flex flex-col overflow-hidden rounded-xl border border-border-strong bg-bg-surface">
+    <div className="flex flex-col overflow-hidden border-2 border-border-strong bg-bg-surface shadow-[3px_3px_0_#2D2A20]">
       {/* Thumbnail */}
       <div
         className="relative flex h-[120px] items-center justify-center"
         style={{ backgroundColor: project.color }}
       >
         <span className="text-[48px]">{project.emoji}</span>
-        <span className="absolute left-2 top-2 rounded-lg border-2 border-border-strong bg-bg-surface px-2 py-1 text-[10px] font-medium text-[#5C4A1F]">
+        <span className="absolute left-2 top-2 border-2 border-border-strong bg-bg-surface px-2 py-1 text-[10px] font-bold uppercase tracking-[1px] text-text-primary">
           {project.difficulty}
         </span>
       </div>
 
       {/* Content */}
       <div className="flex flex-col gap-2 p-3">
-        <p className="text-[14px] font-bold text-[#5C4A1F]">{project.title}</p>
+        <p className="text-[14px] font-bold text-text-primary">{project.title}</p>
         <div className="flex items-center justify-between">
-          <span className="text-[12px] text-[#5C574D]">{project.owner}</span>
+          <span className="text-[12px] text-text-secondary">{project.owner}</span>
           <span className="flex items-center gap-1 text-[12px] font-semibold text-[#D97706]">
             <Coins size={14} className="text-[#D97706]" />
             {project.bounty}
@@ -273,9 +277,9 @@ function ProjectCardUI({ project }: { project: ProjectCard }) {
         </div>
         <button
           type="button"
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-border-strong bg-accent-primary px-4 py-2.5 text-[12px] font-medium text-[#5C4A1F] shadow-[4px_4px_0_#282623]"
+          className="flex w-full items-center justify-center gap-2 border-2 border-border-strong bg-accent-primary px-4 py-2.5 text-[12px] font-bold uppercase tracking-[1px] text-text-primary shadow-[3px_3px_0_#2D2A20]"
         >
-          <UserPlus size={14} className="text-[#9B8ACB]" />
+          <UserPlus size={14} className="text-accent-secondary" />
           Join
         </button>
       </div>

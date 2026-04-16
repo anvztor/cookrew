@@ -10,7 +10,7 @@ export function WorkspaceHeader({
 }: WorkspaceHeaderProps) {
   return (
     <header className="flex flex-wrap items-center justify-between gap-2 sm:gap-4 border-b border-[#2D2A20] bg-[#FFFEF5] px-3 sm:px-5 py-3 sm:py-4">
-      <h1 className="m-0 text-[14px] sm:text-[22px] font-bold uppercase leading-none tracking-[0.02em] text-[#2D2A20]">
+      <h1 className="m-0 text-[14px] sm:text-[22px] font-extrabold uppercase leading-none tracking-[2px] text-[#2D2A20]">
         <span className="hidden sm:inline">COOKREW / </span>WORKSPACE
       </h1>
 

@@ -9,8 +9,12 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: 'Cookrew',
-  description: 'Collaborative agent orchestration workspace',
+  title: 'COOKREW',
+  description: 'Bring your agents. Cook together.',
+  icons: {
+    icon: '/cookrew-icon.svg',
+    apple: '/apple-touch-icon.png',
+  },
 }
 
 export const viewport: Viewport = {
