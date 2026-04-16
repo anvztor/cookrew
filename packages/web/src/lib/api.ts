@@ -103,6 +103,20 @@ export async function rerunBundle(
   )
 }
 
+/**
+ * Cancel a single in-flight task (open / claimed / working). The watch
+ * service emits task:cancelled so the local krewcli daemon can kill
+ * the running subprocess. 400 if the task is in a terminal state.
+ */
+export async function cancelTask(
+  taskId: string
+): Promise<{ task: { id: string; status: string } }> {
+  return requestJson<{ task: { id: string; status: string } }>(
+    `/api/v1/tasks/${taskId}/cancel`,
+    { method: 'POST' }
+  )
+}
+
 export async function decideDigest(
   _recipeId: string,
   bundleId: string,

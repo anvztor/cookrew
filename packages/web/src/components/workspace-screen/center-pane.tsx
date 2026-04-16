@@ -24,6 +24,8 @@ import {
   type WorkflowFeedContextValue,
 } from './workflow-feed-context'
 import type { EventGroup } from './group-events'
+import { TaskExpandOverlay } from './workflow-graph'
+import { cancelTask, rerunBundle } from '@/lib/api'
 
 const ALL_BUCKETS: readonly FeedBucket[] = [
   'tools',
@@ -146,21 +148,49 @@ export function WorkspaceCenterPane({
   )
 
   const workflowFeedValue = useMemo<WorkflowFeedContextValue>(
-    () => ({
-      bundle: selectedBundle?.bundle ?? null,
-      tasks: selectedBundle?.tasks ?? [],
-      liveStates,
-      expandedTaskId,
-      onExpandTask: (id) =>
-        setExpandedTaskId((prev) => (prev === id ? null : id)),
-      // Cancel/rerun wiring lands in Phase 3 (needs UI for confirmation
-      // + a per-task endpoint). Leave undefined for now so the buttons
-      // simply don't render.
-      onCancelTask: undefined,
-      onRerunTask: undefined,
-    }),
-    [selectedBundle, liveStates, expandedTaskId]
+    () => {
+      const bundleId = selectedBundle?.bundle.id ?? null
+      const recipe = recipeId ?? null
+      return {
+        bundle: selectedBundle?.bundle ?? null,
+        tasks: selectedBundle?.tasks ?? [],
+        liveStates,
+        expandedTaskId,
+        onExpandTask: (id) =>
+          setExpandedTaskId((prev) => (prev === id ? null : id)),
+        // Cancel: per-task endpoint. Optimistic — refetch happens via
+        // the SSE watch stream so the node will flip to 'cancelled'
+        // status without a manual reload.
+        onCancelTask: async (id) => {
+          try {
+            await cancelTask(id)
+          } catch (err) {
+            // Surfacing via console for now — Phase 6 adds toast UI.
+            // eslint-disable-next-line no-console
+            console.error('cancelTask failed', { id, err })
+          }
+        },
+        // Rerun: per-task rerun isn't a krewhub endpoint yet, so we
+        // fall back to bundle-level rerun (reopens any blocked task,
+        // including the one the user clicked). Track the desire for
+        // task-scoped rerun in project memory; we'll add the endpoint
+        // when there's a use case for re-running just one node out of
+        // a partially-complete bundle.
+        onRerunTask: async (_taskId) => {
+          if (!recipe || !bundleId) return
+          try {
+            await rerunBundle(recipe, bundleId)
+          } catch (err) {
+            // eslint-disable-next-line no-console
+            console.error('rerunBundle failed', { bundleId, err })
+          }
+        },
+      }
+    },
+    [selectedBundle, liveStates, expandedTaskId, recipeId]
   )
+
+  const expandedLiveState = expandedTaskId ? liveStates[expandedTaskId] ?? null : null
 
   const toggleBucket = (bucket: FeedBucket) => {
     setEnabledBuckets((prev) => {
@@ -403,6 +433,19 @@ export function WorkspaceCenterPane({
           ) : null}
         </div>
       </div>
+
+      {/* Phase 3: full TaskLiveCard overlay when a node is expanded.
+          Mounted at section root so it overlays the whole pane.
+          Only the desktop instance mounts the overlay — mobile is
+          rendered as a separate <section> elsewhere and would double
+          up if both opened. */}
+      {!mobile && expandedTaskId && (
+        <TaskExpandOverlay
+          liveState={expandedLiveState}
+          onClose={() => setExpandedTaskId(null)}
+          onCancel={workflowFeedValue.onCancelTask}
+        />
+      )}
     </section>
   )
 }
