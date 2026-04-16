@@ -10,14 +10,16 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@cookrew/shared": "workspace:*",
+    "@dagrejs/dagre": "^3.0.0",
+    "@xyflow/react": "^12.10.2",
     "lucide-react": "^1.7.0",
     "mermaid": "^11.14.0",
     "next": "16.2.1",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-resizable-panels": "^4.8.0",
-    "viem": "^2.47.12",
-    "@cookrew/shared": "workspace:*"
+    "viem": "^2.47.12"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
