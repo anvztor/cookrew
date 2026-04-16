@@ -46,6 +46,19 @@ const BUCKET_ICONS: Record<FeedBucket, React.ElementType> = {
 /** Distance (px) from the bottom at which we consider the user "pinned". */
 const BOTTOM_STICKY_THRESHOLD = 120
 
+/**
+ * Event types already rendered as steps inside TaskLiveCard. We filter
+ * them out of the feed so the same telemetry isn't shown twice.
+ * Keep in sync with task-live-card.tsx::buildSteps.
+ */
+const LIVE_CARD_EVENT_TYPES: ReadonlySet<string> = new Set([
+  'tool_use',
+  'tool_result',
+  'thinking',
+  'agent_reply',
+  'milestone',
+])
+
 export function WorkspaceCenterPane({
   events,
   hasQuery,
@@ -73,9 +86,20 @@ export function WorkspaceCenterPane({
     () => new Set<FeedBucket>(ALL_BUCKETS)
   )
 
+  // The TaskLiveCard already renders these types as per-task "steps"
+  // (tool_use/tool_result pairs, reasoning, agent replies, milestones).
+  // Dropping them here keeps the feed focused on the bundle narrative —
+  // prompts, plans, session boundaries, digests, fact_added, code_pushed —
+  // and avoids rendering the same telemetry twice.
+  // Keep in sync with task-live-card.tsx::buildSteps.
+  const feedEvents = useMemo(
+    () => events.filter((e) => !LIVE_CARD_EVENT_TYPES.has(e.type)),
+    [events]
+  )
+
   // Collapse raw events into richer groups (pair PreToolUse+PostToolUse,
   // bundle consecutive reasoning, dedupe repeated session boundaries).
-  const grouped = useMemo(() => groupEvents(events), [events])
+  const grouped = useMemo(() => groupEvents(feedEvents), [feedEvents])
   const summary = useMemo(() => summarize(grouped), [grouped])
   const visibleGroups = useMemo(
     () => grouped.filter((g) => enabledBuckets.has(bucketOf(g))),
