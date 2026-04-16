@@ -15,7 +15,6 @@ import {
   joinClasses,
   WorkspaceBadge,
 } from './shared'
-import { TaskLiveFeed } from './task-live-feed'
 import { TerminalBlock } from './terminal-block'
 import type { WorkspaceCenterPaneProps } from './types'
 import { useTaskStream } from '@/hooks/use-task-stream'
@@ -94,11 +93,10 @@ export function WorkspaceCenterPane({
     () => new Set<FeedBucket>(ALL_BUCKETS)
   )
 
-  // The TaskLiveCard already renders these types as per-task "steps"
-  // (tool_use/tool_result pairs, reasoning, agent replies, milestones).
+  // The WorkflowGraphCard's TaskNodes (and the TaskExpandOverlay's
+  // TaskLiveCard) already render these types as per-task "steps".
   // Dropping them here keeps the feed focused on the bundle narrative —
-  // prompts, plans, session boundaries, digests, fact_added, code_pushed —
-  // and avoids rendering the same telemetry twice.
+  // prompts, plans, session boundaries, digests, fact_added, code_pushed.
   // Keep in sync with task-live-card.tsx::buildSteps.
   const feedEvents = useMemo(
     () => events.filter((e) => !LIVE_CARD_EVENT_TYPES.has(e.type)),
@@ -316,12 +314,6 @@ export function WorkspaceCenterPane({
         >
           {selectedBundle ? (
             <div className="flex flex-col gap-3">
-                {recipeId && (
-                  <TaskLiveFeed
-                    recipeId={recipeId}
-                    bundleId={selectedBundle.bundle.id}
-                  />
-                )}
                 {visibleGroups.length > 0 ? (
                   visibleGroups.map((group) => (
                     <EventGroupCard key={group.key} group={group} />
