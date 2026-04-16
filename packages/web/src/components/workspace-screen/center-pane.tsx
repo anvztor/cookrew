@@ -24,7 +24,7 @@ import {
   type WorkflowFeedContextValue,
 } from './workflow-feed-context'
 import type { EventGroup } from './group-events'
-import { TaskExpandOverlay } from './workflow-graph'
+import { ActiveTaskPills, TaskExpandOverlay } from './workflow-graph'
 import { cancelTask, rerunBundle } from '@/lib/api'
 
 const ALL_BUCKETS: readonly FeedBucket[] = [
@@ -304,14 +304,18 @@ export function WorkspaceCenterPane({
         </div>
       </div>
 
+      {/* Provider hoisted above the scroll so the sticky ActiveTaskPills
+          row (visible while scrolling the feed) can read live task
+          state from context too. */}
+      <WorkflowFeedProvider value={workflowFeedValue}>
+        {selectedBundle && <ActiveTaskPills />}
       <div className="relative flex-1 min-h-0">
         <div
           ref={scrollRef}
           className="h-full overflow-y-auto px-5 py-4"
         >
           {selectedBundle ? (
-            <WorkflowFeedProvider value={workflowFeedValue}>
-              <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-3">
                 {recipeId && (
                   <TaskLiveFeed
                     recipeId={recipeId}
@@ -334,7 +338,6 @@ export function WorkspaceCenterPane({
                   </EmptyWorkspaceState>
                 )}
               </div>
-            </WorkflowFeedProvider>
           ) : (
             <EmptyWorkspaceState>
               Create a bundle to populate the workspace feed and right sidebar.
@@ -354,6 +357,7 @@ export function WorkspaceCenterPane({
           </button>
         ) : null}
       </div>
+      </WorkflowFeedProvider>
 
       <div className="border-t border-[#2D2A20] bg-[#FFFEF5] px-5 py-4">
         <div className="flex flex-col gap-3">

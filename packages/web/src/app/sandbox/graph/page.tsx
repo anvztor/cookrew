@@ -14,7 +14,12 @@ import { useEffect, useState } from 'react'
 
 import type { Bundle, Task } from '@cookrew/shared'
 
-import { WorkflowGraphCard } from '@/components/workspace-screen/workflow-graph'
+import {
+  ActiveTaskPills,
+  WorkflowGraphCard,
+} from '@/components/workspace-screen/workflow-graph'
+import { WorkflowFeedProvider } from '@/components/workspace-screen/workflow-feed-context'
+import type { TaskLiveState } from '@/hooks/use-task-stream'
 import { useTaskStream } from '@/hooks/use-task-stream'
 
 interface WorkspaceResponse {
@@ -22,6 +27,35 @@ interface WorkspaceResponse {
     readonly bundle: Bundle
     readonly tasks: readonly Task[]
   } | null
+}
+
+/**
+ * Sandbox helper — fabricate working/claimed liveStates for the first
+ * two tasks in a bundle so the ActiveTaskPills strip is observable even
+ * on a fully-cooked bundle. The real workspace gets these from useTaskStream.
+ */
+function synthesizeWorkingStates(
+  tasks: readonly Task[],
+  realStates: Readonly<Record<string, TaskLiveState>>,
+): Readonly<Record<string, TaskLiveState>> {
+  const out: Record<string, TaskLiveState> = { ...realStates }
+  const fakeStartedAt = new Date(Date.now() - 47_000).toISOString()
+  tasks.slice(0, 2).forEach((t, i) => {
+    if (out[t.id]) return // don't override real state
+    out[t.id] = {
+      taskId: t.id,
+      agentId: i === 0 ? 'codex@anvztor' : 'claude@anvztor',
+      status: i === 0 ? 'working' : 'claimed',
+      title: t.title ?? null,
+      bundleId: t.bundle_id,
+      startedAt: fakeStartedAt,
+      completedAt: null,
+      progress: null,
+      events: [],
+      lastSeq: 0,
+    }
+  })
+  return out
 }
 
 export default function GraphSandboxPage() {
@@ -107,21 +141,44 @@ export default function GraphSandboxPage() {
           <span style={{ fontFamily: 'ui-monospace, monospace' }}>{bundleId}</span>
         </header>
 
-        <WorkflowGraphCard
-          tasks={tasks}
-          liveStates={liveStates}
-          bundleId={bundle?.id ?? bundleId ?? ''}
-          bundlePrompt={bundle?.prompt ?? null}
-          bundleStatus={bundle?.status ?? null}
-          expandedTaskId={expandedTaskId}
-          onExpandTask={(id) => {
-            setExpandedTaskId((prev) => (prev === id ? null : id))
-            log(`expand ${id}`)
+        {/* Phase 4 visualisation: synthesise 'working' liveStates for the
+            first two tasks so the ActiveTaskPills strip is observable
+            even on a completed bundle. Real workspace gets pills from
+            real SSE-driven states. */}
+        <WorkflowFeedProvider
+          value={{
+            bundle: bundle ?? null,
+            tasks,
+            liveStates: synthesizeWorkingStates(tasks, liveStates),
+            expandedTaskId,
+            onExpandTask: (id) => {
+              setExpandedTaskId((prev) => (prev === id ? null : id))
+              log(`expand ${id}`)
+            },
+            onCancelTask: (id) => log(`cancel ${id}`),
+            onRerunTask: (id) => log(`rerun ${id}`),
           }}
-          onCancelTask={(id) => log(`cancel ${id}`)}
-          onRerunTask={(id) => log(`rerun ${id}`)}
-          height={420}
-        />
+        >
+          <ActiveTaskPills />
+        </WorkflowFeedProvider>
+
+        <div style={{ marginTop: 12 }}>
+          <WorkflowGraphCard
+            tasks={tasks}
+            liveStates={liveStates}
+            bundleId={bundle?.id ?? bundleId ?? ''}
+            bundlePrompt={bundle?.prompt ?? null}
+            bundleStatus={bundle?.status ?? null}
+            expandedTaskId={expandedTaskId}
+            onExpandTask={(id) => {
+              setExpandedTaskId((prev) => (prev === id ? null : id))
+              log(`expand ${id}`)
+            }}
+            onCancelTask={(id) => log(`cancel ${id}`)}
+            onRerunTask={(id) => log(`rerun ${id}`)}
+            height={420}
+          />
+        </div>
       </main>
 
       <aside
