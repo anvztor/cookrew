@@ -196,7 +196,6 @@ export interface Event {
   readonly sequence: number
   readonly facts: readonly FactRef[]
   readonly codeRefs: readonly CodeRef[]
-  readonly payload: Readonly<Record<string, unknown>>
   readonly createdAt: string
   readonly expiresAt: string | null
 }
