@@ -186,7 +186,7 @@ export function WorkspaceCenterPane({
         <div className="flex items-center gap-3">
           <p className="text-[15px] font-bold text-[#2D2A20]">Event Feed</p>
           <WorkspaceBadge
-            label={`${events.length} raw · ${grouped.length} grouped`}
+            label={`${feedEvents.length} raw · ${grouped.length} grouped`}
             tone="default"
           />
         </div>
@@ -239,8 +239,10 @@ export function WorkspaceCenterPane({
                 <EmptyWorkspaceState>
                   {hasQuery
                     ? 'No feed events match that search yet.'
-                    : events.length > 0
+                    : feedEvents.length > 0
                     ? 'All matching events are hidden — re-enable a filter chip above.'
+                    : events.length > 0
+                    ? 'All activity for this bundle is shown in the task live card above.'
                     : 'The active bundle does not have any events yet.'}
                 </EmptyWorkspaceState>
               )}
