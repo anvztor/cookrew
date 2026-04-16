@@ -140,10 +140,11 @@ export interface UseTaskStreamOptions {
    */
   bundleId?: string
   /**
-   * When true, tasks that reach a terminal status (done, blocked,
-   * cancelled) are kept in state for N ms before removal.
-   * Default: 5000ms — so the UI can show a flash of "completed" before
-   * the card disappears.
+   * Auto-remove tasks that reach a terminal status (done, blocked,
+   * cancelled) after N ms. Set to 0 (the default) to keep terminal
+   * tasks in state indefinitely so the user can review the full
+   * session, tool calls, and agent reply. Pass a positive value
+   * (e.g. 5000) to auto-dismiss after a flash of "completed."
    */
   terminalLingerMs?: number
 }
@@ -198,13 +199,13 @@ export function useTaskStream(
           dispatch({ kind: 'task_status', taskId: task.id, task })
         }
 
-        // Terminal status — schedule removal after linger
+        // Terminal status — keep the card by default so the user
+        // can review the completed run. Only schedule removal when
+        // the caller explicitly asks for a positive linger.
         if (task.status === 'done' || task.status === 'blocked' || task.status === 'cancelled') {
-          const linger = opts.terminalLingerMs ?? 5000
+          const linger = opts.terminalLingerMs ?? 0
           if (linger > 0) {
             setTimeout(() => dispatch({ kind: 'task_removed', taskId: task.id }), linger)
-          } else {
-            dispatch({ kind: 'task_removed', taskId: task.id })
           }
         }
       }

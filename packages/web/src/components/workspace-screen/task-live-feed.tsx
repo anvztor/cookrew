@@ -12,8 +12,10 @@ import { TaskLiveCard } from './task-live-card'
  * Each card is independent and sticky — they stack when multiple
  * tasks run in parallel (e.g. a graph with parallel branches).
  *
- * Cards auto-disappear ~5s after a task reaches terminal status,
- * so the user sees a brief completion flash before the feed settles.
+ * Cards persist after a task reaches terminal status so the user
+ * can review the full session (tool calls, thinking, agent reply).
+ * Pass `terminalLingerMs` via useTaskStream to auto-dismiss if you
+ * want the old flash-then-disappear behavior.
  */
 export function TaskLiveFeed({
   recipeId,
