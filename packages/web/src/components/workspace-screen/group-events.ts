@@ -49,6 +49,17 @@ export type EventGroup =
       startedAt: string
       prompt: string
     }
+  | {
+      // Workflow DAG card — inserted by the feed renderer (not by
+      // groupEvents itself) so that bundle/tasks data stays out of
+      // this pure event-grouping pass. EventGroupCard reads tasks +
+      // live state from WorkflowFeedContext.
+      kind: 'workflow-graph'
+      key: string
+      bundleId: string
+      turn: number
+      index: number
+    }
 
 interface GroupContext {
   seenSessionStart: Set<string>
@@ -406,6 +417,10 @@ export function bucketOf(group: EventGroup): FeedBucket {
   if (group.kind === 'thinking') return 'thinking'
   if (group.kind === 'session-boundary') return 'sessions'
   if (group.kind === 'turn-divider') return 'messages'
+  // The workflow graph is bundle-scoped and uniquely informative —
+  // bucket it under 'other' so the existing 'other' chip controls
+  // its visibility instead of inventing a new bucket.
+  if (group.kind === 'workflow-graph') return 'other'
   if (group.kind === 'card') {
     const ev = group.event
     if (ev.type === 'agent_reply') return 'messages'

@@ -19,6 +19,8 @@ import { joinClasses, WorkspaceEventBadge } from './shared'
 import type { Event } from '@cookrew/shared'
 import type { EventGroup } from './group-events'
 import type { WorkspaceTone } from './types'
+import { useWorkflowFeed } from './workflow-feed-context'
+import { WorkflowGraphCard } from './workflow-graph'
 
 function hookField<T = unknown>(event: Event, key: string): T | undefined {
   const payload = event.payload as Record<string, unknown>
@@ -151,6 +153,9 @@ export function EventGroupCard({ group }: { readonly group: EventGroup }) {
         prompt={group.prompt}
       />
     )
+  }
+  if (group.kind === 'workflow-graph') {
+    return <WorkflowGraphCardCase bundleId={group.bundleId} />
   }
   return null
 }
@@ -473,3 +478,30 @@ function SessionBoundaryCard({ event }: { readonly event: Event }) {
 }
 
 export { joinClasses }
+
+/**
+ * Bridges the EventGroup → WorkflowGraphCard render with context.
+ *
+ * Pulled out as its own component so we can call useWorkflowFeed (a
+ * hook) cleanly. Bails out gracefully when context isn't provided
+ * (e.g. an isolated test mounting EventGroupCard alone).
+ */
+function WorkflowGraphCardCase({ bundleId }: { readonly bundleId: string }) {
+  const ctx = useWorkflowFeed()
+  if (!ctx.bundle || ctx.bundle.id !== bundleId || ctx.tasks.length === 0) {
+    return null
+  }
+  return (
+    <WorkflowGraphCard
+      bundleId={ctx.bundle.id}
+      bundlePrompt={ctx.bundle.prompt}
+      bundleStatus={ctx.bundle.status}
+      tasks={ctx.tasks}
+      liveStates={ctx.liveStates}
+      expandedTaskId={ctx.expandedTaskId}
+      onExpandTask={ctx.onExpandTask}
+      onCancelTask={ctx.onCancelTask}
+      onRerunTask={ctx.onRerunTask}
+    />
+  )
+}

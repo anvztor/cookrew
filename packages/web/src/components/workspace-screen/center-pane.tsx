@@ -18,6 +18,12 @@ import {
 import { TaskLiveFeed } from './task-live-feed'
 import { TerminalBlock } from './terminal-block'
 import type { WorkspaceCenterPaneProps } from './types'
+import { useTaskStream } from '@/hooks/use-task-stream'
+import {
+  WorkflowFeedProvider,
+  type WorkflowFeedContextValue,
+} from './workflow-feed-context'
+import type { EventGroup } from './group-events'
 
 const ALL_BUCKETS: readonly FeedBucket[] = [
   'tools',
@@ -100,10 +106,60 @@ export function WorkspaceCenterPane({
   // Collapse raw events into richer groups (pair PreToolUse+PostToolUse,
   // bundle consecutive reasoning, dedupe repeated session boundaries).
   const grouped = useMemo(() => groupEvents(feedEvents), [feedEvents])
-  const summary = useMemo(() => summarize(grouped), [grouped])
+
+  // Live task state for the selected bundle's WorkflowGraphCard. The
+  // hook subscribes to the SSE watch stream once and reuses the
+  // existing per-task aggregation that the (now-redundant) sticky
+  // TaskLiveFeed also consumes.
+  const liveStates = useTaskStream(recipeId ?? null, {
+    bundleId: selectedBundle?.bundle.id,
+  })
+
+  const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null)
+
+  // Reset expansion when the user switches bundles — a task id from
+  // bundle A makes no sense applied to bundle B.
+  useEffect(() => {
+    setExpandedTaskId(null)
+  }, [selectedBundle?.bundle.id])
+
+  // Prepend a workflow-graph group when the selected bundle has tasks.
+  // Goes through the same bucketOf → chip filter pipeline as everything
+  // else (mapped to 'other'), so users can hide it via the chips.
+  const groupsWithGraph = useMemo<readonly EventGroup[]>(() => {
+    if (!selectedBundle || selectedBundle.tasks.length === 0) return grouped
+    const bundleId = selectedBundle.bundle.id
+    const graphGroup: EventGroup = {
+      kind: 'workflow-graph',
+      key: `wfgraph:${bundleId}`,
+      bundleId,
+      turn: 0,
+      index: 0,
+    }
+    return [graphGroup, ...grouped]
+  }, [grouped, selectedBundle])
+
+  const summary = useMemo(() => summarize(groupsWithGraph), [groupsWithGraph])
   const visibleGroups = useMemo(
-    () => grouped.filter((g) => enabledBuckets.has(bucketOf(g))),
-    [grouped, enabledBuckets]
+    () => groupsWithGraph.filter((g) => enabledBuckets.has(bucketOf(g))),
+    [groupsWithGraph, enabledBuckets]
+  )
+
+  const workflowFeedValue = useMemo<WorkflowFeedContextValue>(
+    () => ({
+      bundle: selectedBundle?.bundle ?? null,
+      tasks: selectedBundle?.tasks ?? [],
+      liveStates,
+      expandedTaskId,
+      onExpandTask: (id) =>
+        setExpandedTaskId((prev) => (prev === id ? null : id)),
+      // Cancel/rerun wiring lands in Phase 3 (needs UI for confirmation
+      // + a per-task endpoint). Leave undefined for now so the buttons
+      // simply don't render.
+      onCancelTask: undefined,
+      onRerunTask: undefined,
+    }),
+    [selectedBundle, liveStates, expandedTaskId]
   )
 
   const toggleBucket = (bucket: FeedBucket) => {
@@ -224,29 +280,31 @@ export function WorkspaceCenterPane({
           className="h-full overflow-y-auto px-5 py-4"
         >
           {selectedBundle ? (
-            <div className="flex flex-col gap-3">
-              {recipeId && (
-                <TaskLiveFeed
-                  recipeId={recipeId}
-                  bundleId={selectedBundle.bundle.id}
-                />
-              )}
-              {visibleGroups.length > 0 ? (
-                visibleGroups.map((group) => (
-                  <EventGroupCard key={group.key} group={group} />
-                ))
-              ) : (
-                <EmptyWorkspaceState>
-                  {hasQuery
-                    ? 'No feed events match that search yet.'
-                    : feedEvents.length > 0
-                    ? 'All matching events are hidden — re-enable a filter chip above.'
-                    : events.length > 0
-                    ? 'All activity for this bundle is shown in the task live card above.'
-                    : 'The active bundle does not have any events yet.'}
-                </EmptyWorkspaceState>
-              )}
-            </div>
+            <WorkflowFeedProvider value={workflowFeedValue}>
+              <div className="flex flex-col gap-3">
+                {recipeId && (
+                  <TaskLiveFeed
+                    recipeId={recipeId}
+                    bundleId={selectedBundle.bundle.id}
+                  />
+                )}
+                {visibleGroups.length > 0 ? (
+                  visibleGroups.map((group) => (
+                    <EventGroupCard key={group.key} group={group} />
+                  ))
+                ) : (
+                  <EmptyWorkspaceState>
+                    {hasQuery
+                      ? 'No feed events match that search yet.'
+                      : feedEvents.length > 0
+                      ? 'All matching events are hidden — re-enable a filter chip above.'
+                      : events.length > 0
+                      ? 'All activity for this bundle is shown in the task live card above.'
+                      : 'The active bundle does not have any events yet.'}
+                  </EmptyWorkspaceState>
+                )}
+              </div>
+            </WorkflowFeedProvider>
           ) : (
             <EmptyWorkspaceState>
               Create a bundle to populate the workspace feed and right sidebar.
