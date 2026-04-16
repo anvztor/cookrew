@@ -65,6 +65,7 @@ export default function GraphSandboxPage() {
   const [error, setError] = useState<string | null>(null)
   const [actionLog, setActionLog] = useState<string[]>([])
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null)
+  const [errorDemo, setErrorDemo] = useState<string | null>(null)
 
   const liveStates = useTaskStream(recipeId, { bundleId: bundleId ?? undefined })
 
@@ -163,21 +164,41 @@ export default function GraphSandboxPage() {
         </WorkflowFeedProvider>
 
         <div style={{ marginTop: 12 }}>
-          <WorkflowGraphCard
-            tasks={tasks}
-            liveStates={liveStates}
-            bundleId={bundle?.id ?? bundleId ?? ''}
-            bundlePrompt={bundle?.prompt ?? null}
-            bundleStatus={bundle?.status ?? null}
-            expandedTaskId={expandedTaskId}
-            onExpandTask={(id) => {
-              setExpandedTaskId((prev) => (prev === id ? null : id))
-              log(`expand ${id}`)
+          {/* Wrap the real graph card in a separate provider so we can
+              inject an errorMessage to visually verify the Phase-6
+              error banner. The button below toggles the message. */}
+          <WorkflowFeedProvider
+            value={{
+              bundle: bundle ?? null,
+              tasks,
+              liveStates,
+              expandedTaskId,
+              onExpandTask: (id) => {
+                setExpandedTaskId((prev) => (prev === id ? null : id))
+                log(`expand ${id}`)
+              },
+              onCancelTask: (id) => log(`cancel ${id}`),
+              onRerunTask: (id) => log(`rerun ${id}`),
+              errorMessage: errorDemo,
+              onDismissError: () => setErrorDemo(null),
             }}
-            onCancelTask={(id) => log(`cancel ${id}`)}
-            onRerunTask={(id) => log(`rerun ${id}`)}
-            height={420}
-          />
+          >
+            <WorkflowGraphCard
+              tasks={tasks}
+              liveStates={liveStates}
+              bundleId={bundle?.id ?? bundleId ?? ''}
+              bundlePrompt={bundle?.prompt ?? null}
+              bundleStatus={bundle?.status ?? null}
+              expandedTaskId={expandedTaskId}
+              onExpandTask={(id) => {
+                setExpandedTaskId((prev) => (prev === id ? null : id))
+                log(`expand ${id}`)
+              }}
+              onCancelTask={(id) => log(`cancel ${id}`)}
+              onRerunTask={(id) => log(`rerun ${id}`)}
+              height={420}
+            />
+          </WorkflowFeedProvider>
         </div>
       </main>
 
@@ -201,6 +222,25 @@ export default function GraphSandboxPage() {
           <dt style={{ color: '#57534E', marginTop: 4 }}>Expanded</dt>
           <dd style={{ marginLeft: 0, fontFamily: 'ui-monospace, monospace' }}>{expandedTaskId ?? '(none)'}</dd>
         </dl>
+
+        <h2 style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#57534E', marginTop: 16 }}>
+          Phase 6 toggles
+        </h2>
+        <button
+          type="button"
+          onClick={() => setErrorDemo('Cancel failed: HTTP 500 (sandbox demo)')}
+          style={{
+            marginTop: 8,
+            padding: '4px 8px',
+            border: '1px solid #DC2626',
+            background: '#FEE2E2',
+            color: '#991B1B',
+            cursor: 'pointer',
+            fontSize: 11,
+          }}
+        >
+          Trigger error banner
+        </button>
 
         <h2 style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#57534E', marginTop: 16 }}>
           Action log

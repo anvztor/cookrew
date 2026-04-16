@@ -18,14 +18,14 @@
  * `height` prop (defaults to 320px). The inner ReactFlow auto-fits.
  */
 
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useRef } from 'react'
+import { X } from 'lucide-react'
 import {
   ReactFlow,
   Background,
   Controls,
   ReactFlowProvider,
   useReactFlow,
-  type ReactFlowInstance,
 } from '@xyflow/react'
 
 import '@xyflow/react/dist/style.css'
@@ -33,6 +33,7 @@ import '@xyflow/react/dist/style.css'
 import type { Task } from '@cookrew/shared'
 
 import type { TaskLiveState } from '@/hooks/use-task-stream'
+import { useWorkflowFeed } from '../workflow-feed-context'
 import { TaskNode } from './task-node'
 import { useGraphLayout } from './use-graph-layout'
 
@@ -176,21 +177,27 @@ function WorkflowGraphCardInner({
           {bundlePrompt}
         </div>
       )}
-      <div style={{ height, position: 'relative' }}>
+      <ErrorBanner />
+      {/* Single-task bundle: cap the canvas height so the node has
+          breathing room without a giant empty area. ReactFlow renders
+          a 1-node graph fine; we just shrink the chrome. */}
+      <div style={{ height: nodes.length === 1 ? 160 : height, position: 'relative' }}>
         <ReactFlow
           nodes={[...nodes]}
           edges={[...edges]}
           nodeTypes={NODE_TYPES}
           fitView
-          fitViewOptions={{ padding: 0.2 }}
+          fitViewOptions={{ padding: nodes.length === 1 ? 0.4 : 0.2 }}
           proOptions={{ hideAttribution: true }}
           nodesDraggable={false}
           nodesConnectable={false}
           elementsSelectable={true}
-          panOnDrag={true}
+          panOnDrag={nodes.length > 1}
+          zoomOnScroll={nodes.length > 1}
+          zoomOnPinch={nodes.length > 1}
         >
           <Background gap={16} size={1} color="#E7E5E4" />
-          <Controls showInteractive={false} />
+          {nodes.length > 1 && <Controls showInteractive={false} />}
         </ReactFlow>
       </div>
     </div>
@@ -203,5 +210,57 @@ export function WorkflowGraphCard(props: WorkflowGraphCardProps) {
     <ReactFlowProvider>
       <WorkflowGraphCardInner {...props} />
     </ReactFlowProvider>
+  )
+}
+
+/**
+ * Inline error banner — shows the latest cancel/rerun failure for ~4s
+ * then auto-dismisses. Reads errorMessage + onDismissError from
+ * WorkflowFeedContext, so it's silent when no provider supplies them
+ * (e.g. the sandbox harness which doesn't wire errors).
+ */
+function ErrorBanner() {
+  const { errorMessage, onDismissError } = useWorkflowFeed()
+
+  useEffect(() => {
+    if (!errorMessage || !onDismissError) return
+    const id = setTimeout(() => onDismissError(), 4000)
+    return () => clearTimeout(id)
+  }, [errorMessage, onDismissError])
+
+  if (!errorMessage) return null
+
+  return (
+    <div
+      role="alert"
+      style={{
+        padding: '6px 12px',
+        borderBottom: '1px solid #DC2626',
+        background: '#FEE2E2',
+        color: '#991B1B',
+        fontSize: 12,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+      }}
+    >
+      <span style={{ flex: 1 }}>{errorMessage}</span>
+      {onDismissError && (
+        <button
+          type="button"
+          onClick={onDismissError}
+          aria-label="Dismiss error"
+          style={{
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            padding: 2,
+            color: '#991B1B',
+          }}
+        >
+          <X size={12} />
+        </button>
+      )}
+    </div>
   )
 }

@@ -25,6 +25,13 @@ export interface WorkflowFeedContextValue {
   readonly onExpandTask?: (taskId: string) => void
   readonly onCancelTask?: (taskId: string) => void
   readonly onRerunTask?: (taskId: string) => void
+  /**
+   * Transient error banner shown above the WorkflowGraphCard. Set by
+   * cancel/rerun handlers when the API call fails; cleared by the
+   * banner's own auto-dismiss or by clicking the X.
+   */
+  readonly errorMessage?: string | null
+  readonly onDismissError?: () => void
 }
 
 const EMPTY_VALUE: WorkflowFeedContextValue = {
@@ -32,6 +39,7 @@ const EMPTY_VALUE: WorkflowFeedContextValue = {
   tasks: [],
   liveStates: {},
   expandedTaskId: null,
+  errorMessage: null,
 }
 
 const WorkflowFeedContext = createContext<WorkflowFeedContextValue>(EMPTY_VALUE)

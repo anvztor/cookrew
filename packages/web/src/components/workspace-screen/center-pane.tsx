@@ -116,11 +116,13 @@ export function WorkspaceCenterPane({
   })
 
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null)
+  const [feedError, setFeedError] = useState<string | null>(null)
 
-  // Reset expansion when the user switches bundles — a task id from
-  // bundle A makes no sense applied to bundle B.
+  // Reset expansion + clear stale error when the user switches bundles
+  // — a task id from bundle A makes no sense applied to bundle B.
   useEffect(() => {
     setExpandedTaskId(null)
+    setFeedError(null)
   }, [selectedBundle?.bundle.id])
 
   // Prepend a workflow-graph group when the selected bundle has tasks.
@@ -162,10 +164,10 @@ export function WorkspaceCenterPane({
         onCancelTask: async (id) => {
           try {
             await cancelTask(id)
+            setFeedError(null)
           } catch (err) {
-            // Surfacing via console for now — Phase 6 adds toast UI.
-            // eslint-disable-next-line no-console
-            console.error('cancelTask failed', { id, err })
+            const msg = err instanceof Error ? err.message : 'Unknown error'
+            setFeedError(`Cancel failed: ${msg}`)
           }
         },
         // Rerun: per-task rerun isn't a krewhub endpoint yet, so we
@@ -178,14 +180,17 @@ export function WorkspaceCenterPane({
           if (!recipe || !bundleId) return
           try {
             await rerunBundle(recipe, bundleId)
+            setFeedError(null)
           } catch (err) {
-            // eslint-disable-next-line no-console
-            console.error('rerunBundle failed', { bundleId, err })
+            const msg = err instanceof Error ? err.message : 'Unknown error'
+            setFeedError(`Re-run failed: ${msg}`)
           }
         },
+        errorMessage: feedError,
+        onDismissError: () => setFeedError(null),
       }
     },
-    [selectedBundle, liveStates, expandedTaskId, recipeId]
+    [selectedBundle, liveStates, expandedTaskId, recipeId, feedError]
   )
 
   const expandedLiveState = expandedTaskId ? liveStates[expandedTaskId] ?? null : null

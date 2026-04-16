@@ -103,18 +103,27 @@ function BackdropWrap({
 }) {
   // Click-outside: only fire onClose when the click target is the
   // backdrop itself, not anything inside the panel.
+  //
+  // Layout: bottom-sheet on mobile (items-end + full width), centered
+  // modal on sm+ viewports. Tailwind mobile-first means the default
+  // classes apply to small screens.
   return (
     <div
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}
-      className="fixed inset-0 z-30 flex items-center justify-center bg-black/30 p-4"
+      className="fixed inset-0 z-30 flex items-end justify-center bg-black/30 sm:items-center sm:p-4"
       role="dialog"
       aria-modal="true"
     >
       <div
         ref={panelRef}
-        className="w-full max-w-2xl border border-[#2D2A20] bg-[#FFFEF5] shadow-[4px_4px_0_#2D2A20]"
+        className="
+          w-full max-h-[85vh] overflow-hidden
+          border border-[#2D2A20] bg-[#FFFEF5]
+          shadow-[4px_4px_0_#2D2A20]
+          sm:max-w-2xl
+        "
         onMouseDown={(e) => e.stopPropagation()}
       >
         {children}
