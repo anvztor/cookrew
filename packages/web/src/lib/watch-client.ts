@@ -54,9 +54,14 @@ export function openWatchStream(
     if (opts.recipeId) params.set('recipe_id', opts.recipeId)
     if (channelFilter) params.set('channel', channelFilter)
 
-    const url = `/api/v1/watch?${params.toString()}`
-    // withCredentials=true sends the krew_session cookie through the
-    // Next.js rewrite proxy to krewhub. Required for browser auth.
+    // Next.js rewrites buffer SSE responses; connect directly to
+    // krewhub when running on cookrew.dev. CORS allows this and
+    // withCredentials sends the krew_session cookie.
+    const hubBase =
+      typeof window !== 'undefined' && window.location.hostname.endsWith('cookrew.dev')
+        ? 'https://hub.cookrew.dev'
+        : ''
+    const url = `${hubBase}/api/v1/watch?${params.toString()}`
     source = new EventSource(url, { withCredentials: true })
 
     // Listen for all channel event names, plus the legacy resource
