@@ -1,170 +1,38 @@
 'use client'
 
 /**
- * Phase-0 spike: render one bundle's tasks as a ReactFlow DAG.
+ * Sandbox harness for the WorkflowGraphCard component (Phase 1+).
  *
- * Throwaway sandbox at /sandbox/graph?recipe=<id>&bundle=<id>. Fetches
- * the live /workspace API, builds nodes from `bundle.tasks`, edges from
- * `task.depends_on_task_ids`, lays out top-to-bottom with dagre, and
- * renders via @xyflow/react. Validates that ReactFlow + dagre work
- * against real prod data before integrating into the feed.
+ * Mounts the real WorkflowGraphCard against live /workspace data so we
+ * can verify each phase visually before integrating into the event feed.
  *
- * Decisions baked in (per design discussion):
- *   - top-to-bottom layout
- *   - plain edges (no labels)
- *   - background color encodes status
- *   - compact node shape (proxy for what TaskNode will eventually be)
+ * Lives at /sandbox/graph?recipe=<id>&bundle=<id>. Click handlers log
+ * to the on-screen action panel — no real cancel/rerun is invoked.
  */
 
-import { useEffect, useMemo, useState } from 'react'
-import {
-  ReactFlow,
-  Background,
-  Controls,
-  Handle,
-  Position,
-  type Edge,
-  type Node,
-} from '@xyflow/react'
-import dagre from '@dagrejs/dagre'
+import { useEffect, useState } from 'react'
 
-import '@xyflow/react/dist/style.css'
+import type { Bundle, Task } from '@cookrew/shared'
 
-// ─────────────────────────────────────────────────────────────────
-// Types — local to the sandbox; promoted to shared in Phase 1.
-// ─────────────────────────────────────────────────────────────────
-
-interface SandboxTask {
-  readonly id: string
-  readonly title: string
-  readonly status: string
-  readonly depends_on_task_ids: readonly string[] | null
-  readonly claimed_by_agent_id: string | null
-}
+import { WorkflowGraphCard } from '@/components/workspace-screen/workflow-graph'
+import { useTaskStream } from '@/hooks/use-task-stream'
 
 interface WorkspaceResponse {
   readonly selected_bundle?: {
-    readonly bundle: { readonly id: string }
-    readonly tasks: readonly SandboxTask[]
+    readonly bundle: Bundle
+    readonly tasks: readonly Task[]
   } | null
 }
-
-// ─────────────────────────────────────────────────────────────────
-// Layout
-// ─────────────────────────────────────────────────────────────────
-
-const NODE_WIDTH = 220
-const NODE_HEIGHT = 80
-
-function layoutTopDown(
-  tasks: readonly SandboxTask[],
-): { nodes: Node[]; edges: Edge[] } {
-  const g = new dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}))
-  g.setGraph({ rankdir: 'TB', nodesep: 30, ranksep: 60 })
-
-  for (const t of tasks) {
-    g.setNode(t.id, { width: NODE_WIDTH, height: NODE_HEIGHT })
-  }
-  const taskIds = new Set(tasks.map((t) => t.id))
-  for (const t of tasks) {
-    for (const parent of t.depends_on_task_ids ?? []) {
-      // Skip dangling deps so dagre doesn't synthesize phantom nodes.
-      if (taskIds.has(parent)) g.setEdge(parent, t.id)
-    }
-  }
-
-  dagre.layout(g)
-
-  const nodes: Node[] = tasks.map((t) => {
-    const pos = g.node(t.id)
-    return {
-      id: t.id,
-      position: { x: pos.x - NODE_WIDTH / 2, y: pos.y - NODE_HEIGHT / 2 },
-      data: { task: t },
-      type: 'taskNode',
-    }
-  })
-
-  const edges: Edge[] = []
-  for (const t of tasks) {
-    for (const parent of t.depends_on_task_ids ?? []) {
-      if (taskIds.has(parent)) {
-        edges.push({
-          id: `${parent}->${t.id}`,
-          source: parent,
-          target: t.id,
-          type: 'default',
-        })
-      }
-    }
-  }
-
-  return { nodes, edges }
-}
-
-// ─────────────────────────────────────────────────────────────────
-// Compact TaskNode — proxy for the real component coming in Phase 1.
-// ─────────────────────────────────────────────────────────────────
-
-const STATUS_BG: Record<string, string> = {
-  done: '#D1FAE5',       // emerald-100
-  working: '#DBEAFE',    // blue-100
-  claimed: '#DBEAFE',    // blue-100
-  blocked: '#FEE2E2',    // rose-100
-  cancelled: '#FEE2E2',  // rose-100
-  open: '#FAF5E8',       // cream
-}
-
-function TaskNodeProxy({ data }: { data: { task: SandboxTask } }) {
-  const t = data.task
-  const bg = STATUS_BG[t.status] ?? '#FFFEF5'
-  return (
-    <div
-      style={{
-        width: NODE_WIDTH,
-        height: NODE_HEIGHT,
-        background: bg,
-        border: '1px solid #2D2A20',
-        boxShadow: '2px 2px 0 #2D2A20',
-        padding: '8px 10px',
-        fontFamily: 'ui-sans-serif, system-ui',
-        fontSize: 12,
-        color: '#2D2A20',
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 4,
-        position: 'relative',
-      }}
-    >
-      {/* Top handle: receives edges from upstream tasks. Bottom: outgoing.
-          Without handles ReactFlow silently drops edges to/from this node. */}
-      <Handle type="target" position={Position.Top} style={{ background: '#2D2A20', width: 6, height: 6, border: 'none' }} />
-      <div style={{ fontWeight: 600, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
-        {t.title}
-      </div>
-      <div style={{ fontSize: 10, color: '#57534E' }}>
-        {t.status} {t.claimed_by_agent_id ? `· ${t.claimed_by_agent_id}` : ''}
-      </div>
-      <div style={{ fontSize: 9, color: '#A8A29E', fontFamily: 'ui-monospace, monospace' }}>
-        {t.id}
-      </div>
-      <Handle type="source" position={Position.Bottom} style={{ background: '#2D2A20', width: 6, height: 6, border: 'none' }} />
-    </div>
-  )
-}
-
-const nodeTypes = { taskNode: TaskNodeProxy }
-
-// ─────────────────────────────────────────────────────────────────
-// Page
-// ─────────────────────────────────────────────────────────────────
 
 export default function GraphSandboxPage() {
   const [recipeId, setRecipeId] = useState<string | null>(null)
   const [bundleId, setBundleId] = useState<string | null>(null)
   const [data, setData] = useState<WorkspaceResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [actionLog, setActionLog] = useState<string[]>([])
+  const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null)
+
+  const liveStates = useTaskStream(recipeId, { bundleId: bundleId ?? undefined })
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -186,13 +54,16 @@ export default function GraphSandboxPage() {
       .catch((e) => setError(String(e)))
   }, [recipeId, bundleId])
 
+  const log = (msg: string) =>
+    setActionLog((prev) => [`${new Date().toISOString().slice(11, 19)} ${msg}`, ...prev].slice(0, 20))
+
   const tasks = data?.selected_bundle?.tasks ?? []
-  const { nodes, edges } = useMemo(() => layoutTopDown(tasks), [tasks])
+  const bundle = data?.selected_bundle?.bundle
 
   if (!recipeId) {
     return (
       <div style={{ padding: 24, fontFamily: 'ui-sans-serif, system-ui' }}>
-        <h1 style={{ fontSize: 18, marginBottom: 12 }}>Graph sandbox</h1>
+        <h1 style={{ fontSize: 18, marginBottom: 12 }}>Workflow graph sandbox</h1>
         <p style={{ fontSize: 13, color: '#57534E' }}>
           Pass <code>?recipe=&lt;id&gt;&amp;bundle=&lt;id&gt;</code> in the URL.
         </p>
@@ -202,7 +73,7 @@ export default function GraphSandboxPage() {
             href="/sandbox/graph?recipe=rec_70997c70&bundle=bun_21b93226"
             style={{ color: '#3B82F6', textDecoration: 'underline' }}
           >
-            rec_70997c70 / bun_21b93226
+            rec_70997c70 / bun_21b93226 (5 sequential tasks)
           </a>
         </p>
       </div>
@@ -220,40 +91,75 @@ export default function GraphSandboxPage() {
   if (!data) return <div style={{ padding: 24 }}>Loading…</div>
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <header
+    <div
+      style={{
+        minHeight: '100vh',
+        display: 'grid',
+        gridTemplateColumns: '1fr 280px',
+        background: '#F5F5F4',
+        fontFamily: 'ui-sans-serif, system-ui',
+      }}
+    >
+      <main style={{ padding: 16 }}>
+        <header style={{ marginBottom: 12, fontSize: 13, color: '#57534E' }}>
+          <strong>WorkflowGraphCard</strong> · sandbox ·{' '}
+          <span style={{ fontFamily: 'ui-monospace, monospace' }}>{recipeId}</span> /{' '}
+          <span style={{ fontFamily: 'ui-monospace, monospace' }}>{bundleId}</span>
+        </header>
+
+        <WorkflowGraphCard
+          tasks={tasks}
+          liveStates={liveStates}
+          bundleId={bundle?.id ?? bundleId ?? ''}
+          bundlePrompt={bundle?.prompt ?? null}
+          bundleStatus={bundle?.status ?? null}
+          expandedTaskId={expandedTaskId}
+          onExpandTask={(id) => {
+            setExpandedTaskId((prev) => (prev === id ? null : id))
+            log(`expand ${id}`)
+          }}
+          onCancelTask={(id) => log(`cancel ${id}`)}
+          onRerunTask={(id) => log(`rerun ${id}`)}
+          height={420}
+        />
+      </main>
+
+      <aside
         style={{
-          padding: '12px 16px',
-          borderBottom: '1px solid #2D2A20',
-          background: '#FAF5E8',
-          fontFamily: 'ui-sans-serif, system-ui',
-          fontSize: 13,
+          padding: 16,
+          background: '#FFFEF5',
+          borderLeft: '1px solid #E7E5E4',
+          fontSize: 12,
+          overflow: 'auto',
         }}
       >
-        <strong>Graph sandbox</strong>
-        {' · '}
-        <span style={{ fontFamily: 'ui-monospace, monospace' }}>{recipeId}</span>
-        {' / '}
-        <span style={{ fontFamily: 'ui-monospace, monospace' }}>{bundleId}</span>
-        {' · '}
-        <span style={{ color: '#57534E' }}>
-          {tasks.length} task{tasks.length === 1 ? '' : 's'}, {edges.length} edge
-          {edges.length === 1 ? '' : 's'}
-        </span>
-      </header>
-      <div style={{ flex: 1, minHeight: 0 }}>
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          nodeTypes={nodeTypes}
-          fitView
-          fitViewOptions={{ padding: 0.2 }}
-          proOptions={{ hideAttribution: true }}
-        >
-          <Background />
-          <Controls />
-        </ReactFlow>
-      </div>
+        <h2 style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#57534E' }}>
+          State
+        </h2>
+        <dl style={{ marginTop: 8 }}>
+          <dt style={{ color: '#57534E' }}>Tasks</dt>
+          <dd style={{ marginLeft: 0 }}>{tasks.length}</dd>
+          <dt style={{ color: '#57534E', marginTop: 4 }}>Live states</dt>
+          <dd style={{ marginLeft: 0 }}>{Object.keys(liveStates).length}</dd>
+          <dt style={{ color: '#57534E', marginTop: 4 }}>Expanded</dt>
+          <dd style={{ marginLeft: 0, fontFamily: 'ui-monospace, monospace' }}>{expandedTaskId ?? '(none)'}</dd>
+        </dl>
+
+        <h2 style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#57534E', marginTop: 16 }}>
+          Action log
+        </h2>
+        <ul style={{ marginTop: 8, listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {actionLog.length === 0 ? (
+            <li style={{ color: '#A8A29E' }}>(click a node, cancel, or rerun)</li>
+          ) : (
+            actionLog.map((entry, i) => (
+              <li key={i} style={{ fontFamily: 'ui-monospace, monospace', fontSize: 11 }}>
+                {entry}
+              </li>
+            ))
+          )}
+        </ul>
+      </aside>
     </div>
   )
 }
