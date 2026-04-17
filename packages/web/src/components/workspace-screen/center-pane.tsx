@@ -17,7 +17,7 @@ import {
 } from './shared'
 import { TerminalBlock } from './terminal-block'
 import type { WorkspaceCenterPaneProps } from './types'
-import { useTaskStream } from '@/hooks/use-task-stream'
+import { useTaskStream, type TaskLiveState } from '@/hooks/use-task-stream'
 import {
   WorkflowFeedProvider,
   type WorkflowFeedContextValue,
@@ -147,6 +147,19 @@ export function WorkspaceCenterPane({
     [groupsWithGraph, enabledBuckets]
   )
 
+  // Merge SSE-driven live states with historical states built from
+  // the bundle's persisted events. Historical fills in completed tasks
+  // that finished before this browser session — so clicking a done
+  // node still shows its full tool_use / agent_reply event trace.
+  const allLiveStates = useMemo(
+    () => mergedLiveStates(
+      selectedBundle?.tasks ?? [],
+      events,  // full events (pre-LIVE_CARD_EVENT_TYPES filter)
+      liveStates,
+    ),
+    [selectedBundle?.tasks, events, liveStates]
+  )
+
   const workflowFeedValue = useMemo<WorkflowFeedContextValue>(
     () => {
       const bundleId = selectedBundle?.bundle.id ?? null
@@ -154,7 +167,7 @@ export function WorkspaceCenterPane({
       return {
         bundle: selectedBundle?.bundle ?? null,
         tasks: selectedBundle?.tasks ?? [],
-        liveStates,
+        liveStates: allLiveStates,
         expandedTaskId,
         onExpandTask: (id) =>
           setExpandedTaskId((prev) => (prev === id ? null : id)),
@@ -190,10 +203,10 @@ export function WorkspaceCenterPane({
         onDismissError: () => setFeedError(null),
       }
     },
-    [selectedBundle, liveStates, expandedTaskId, recipeId, feedError]
+    [selectedBundle, allLiveStates, expandedTaskId, recipeId, feedError]
   )
 
-  const expandedLiveState = expandedTaskId ? liveStates[expandedTaskId] ?? null : null
+  const expandedLiveState = expandedTaskId ? allLiveStates[expandedTaskId] ?? null : null
 
   const toggleBucket = (bucket: FeedBucket) => {
     setEnabledBuckets((prev) => {
@@ -449,4 +462,59 @@ export function WorkspaceCenterPane({
       )}
     </section>
   )
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Historical state hydration
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * Build TaskLiveState records from the server-persisted events array
+ * for tasks that have NO SSE state (i.e. the task already finished
+ * before this browser session started, so `useTaskStream` never saw
+ * its working/message events).
+ *
+ * Returns a merged map: SSE-driven states take priority (they're
+ * fresher + include progress data), historical states fill the gaps
+ * so completed tasks are still expandable with full event history.
+ */
+function mergedLiveStates(
+  tasks: readonly import('@cookrew/shared').Task[],
+  allEvents: readonly import('@cookrew/shared').Event[],
+  sseStates: Readonly<Record<string, TaskLiveState>>,
+): Readonly<Record<string, TaskLiveState>> {
+  // Index events by task_id once (linear scan).
+  const eventsByTask = new Map<string, import('@cookrew/shared').Event[]>()
+  for (const ev of allEvents) {
+    if (!ev.task_id) continue
+    const list = eventsByTask.get(ev.task_id)
+    if (list) list.push(ev)
+    else eventsByTask.set(ev.task_id, [ev])
+  }
+
+  const out: Record<string, TaskLiveState> = { ...sseStates }
+
+  for (const task of tasks) {
+    // SSE state exists → prefer it (fresher, includes progress).
+    if (out[task.id]) continue
+
+    const taskEvents = eventsByTask.get(task.id) ?? []
+    // Sort by sequence so the event array is chronological.
+    taskEvents.sort((a, b) => a.sequence - b.sequence)
+
+    out[task.id] = {
+      taskId: task.id,
+      agentId: task.claimed_by_agent_id ?? null,
+      status: task.status,
+      title: task.title ?? null,
+      bundleId: task.bundle_id,
+      startedAt: task.claimed_at ?? null,
+      completedAt: task.completed_at ?? null,
+      progress: null,
+      events: taskEvents,
+      lastSeq: taskEvents.length > 0 ? taskEvents[taskEvents.length - 1].sequence : 0,
+    }
+  }
+
+  return out
 }
