@@ -147,18 +147,52 @@ type Step =
   | { kind: 'milestone'; body: string; eventIds: string[] }
 
 /**
- * Pair tool_use with matching tool_result (by tool_use_id), pass through
- * thinking/agent_reply/milestone as standalone steps.
+ * Build a compact step list from raw events.
+ *
+ * Handles the three noise patterns from the codex rollout watcher:
+ *   1. "Notification" agent_reply placeholders → dropped
+ *   2. Consecutive duplicate agent_reply/tool_use with identical body
+ *      (rollout watcher emits pre + post for each) → deduped
+ *   3. tool_use "pending" + tool_use "completed ✓" hook pairs → merged
+ *      into one step (same pattern group-events.ts::groupEvents uses
+ *      for PreToolUse/PostToolUse in the feed)
  */
 function buildSteps(events: readonly Event[]): Step[] {
   const steps: Step[] = []
   const pendingTools = new Map<string, { input: unknown; eventId: string; name: string }>()
+
+  // Track last emitted body per step kind for consecutive-dedup.
+  let lastMessageBody = ''
+  let lastToolBody = ''
 
   for (const evt of events) {
     const type = evt.type as EventType
     const payload = (evt.payload as Record<string, unknown> | null) ?? {}
 
     if (type === 'tool_use') {
+      const body = evt.body || ''
+
+      // Codex hook sends the same tool_use twice: once "pending"
+      // (e.g. `Bash(ls)`) then "completed" (`Bash(ls) ✓`). The
+      // completed variant has a trailing ` ✓`. Merge into the
+      // existing pending step instead of creating a duplicate.
+      if (body.endsWith(' ✓') || body.endsWith(' ✓')) {
+        const pendingBody = body.replace(/ ✓$/, '').replace(/ ✓$/, '')
+        if (pendingBody === lastToolBody) {
+          // Find the last tool step and mark it done.
+          const lastTool = [...steps].reverse().find((s) => s.kind === 'tool')
+          if (lastTool && lastTool.kind === 'tool') {
+            lastTool.output = '✓'
+            lastTool.eventIds.push(evt.id)
+            continue
+          }
+        }
+      }
+
+      // Consecutive duplicate detection (identical body, no ✓).
+      if (body === lastToolBody && body) continue
+      lastToolBody = body
+
       const id = (payload.tool_use_id as string | undefined) ?? evt.id
       pendingTools.set(id, {
         input: payload.input,
@@ -167,8 +201,8 @@ function buildSteps(events: readonly Event[]): Step[] {
       })
       steps.push({
         kind: 'tool',
-        toolName: (payload.tool_name as string | undefined) ?? 'tool',
-        input: payload.input,
+        toolName: (payload.tool_name as string | undefined) ?? (body.split('(')[0] || 'tool'),
+        input: payload.input ?? (body.includes('(') ? body.slice(body.indexOf('(') + 1, -1) : undefined) ?? undefined,
         output: undefined,
         isError: false,
         eventIds: [evt.id],
@@ -177,7 +211,6 @@ function buildSteps(events: readonly Event[]): Step[] {
       const id = (payload.tool_use_id as string | undefined) ?? ''
       const match = pendingTools.get(id)
       pendingTools.delete(id)
-      // Find the existing tool step and update it
       const existingStep = [...steps].reverse().find(
         (s) => s.kind === 'tool' && s.eventIds.includes(match?.eventId ?? ''),
       )
@@ -186,7 +219,6 @@ function buildSteps(events: readonly Event[]): Step[] {
         existingStep.isError = Boolean(payload.is_error)
         existingStep.eventIds.push(evt.id)
       } else {
-        // Orphan result — show as standalone
         steps.push({
           kind: 'tool',
           toolName: 'unknown',
@@ -197,22 +229,24 @@ function buildSteps(events: readonly Event[]): Step[] {
         })
       }
     } else if (type === 'thinking') {
-      steps.push({
-        kind: 'thinking',
-        text: (payload.text as string | undefined) ?? evt.body,
-        eventIds: [evt.id],
-      })
+      const text = (payload.text as string | undefined) ?? evt.body
+      steps.push({ kind: 'thinking', text, eventIds: [evt.id] })
     } else if (type === 'agent_reply') {
-      steps.push({
-        kind: 'message',
-        text: (payload.text as string | undefined) ?? evt.body,
-        eventIds: [evt.id],
-      })
+      const text = (payload.text as string | undefined) ?? evt.body
+
+      // Drop empty "Notification" placeholders (codex hook artifact).
+      if (!text || text === 'Notification') continue
+
+      // Consecutive duplicate detection.
+      if (text === lastMessageBody) continue
+      lastMessageBody = text
+
+      steps.push({ kind: 'message', text, eventIds: [evt.id] })
     } else if (type === 'milestone') {
       steps.push({ kind: 'milestone', body: evt.body, eventIds: [evt.id] })
     }
-    // session_start / session_end / plan / prompt omitted from step list
-    // (shown in event feed instead)
+    // session_start / session_end / plan / prompt / task_working
+    // omitted — shown in event feed instead.
   }
 
   return steps
