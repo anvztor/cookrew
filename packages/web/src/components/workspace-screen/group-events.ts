@@ -374,9 +374,16 @@ function assignTurnsAndIndices(groups: readonly EventGroup[]): EventGroup[] {
   let index = 0
 
   for (const g of groups) {
-    const isPrompt =
-      g.kind === 'card' && g.event.type === 'prompt'
-    if (isPrompt) {
+    // Only human-submitted prompts create turn dividers. Agent-internal
+    // prompts (actor_type='hook', from codex rollout watcher forwarding
+    // session starts / follow-up prompts) look like type='prompt' but
+    // are NOT user actions — they'd inflate the turn count (e.g. 14
+    // "turns" for a bundle with 1 real user prompt + 13 agent sessions).
+    const isHumanPrompt =
+      g.kind === 'card' &&
+      g.event.type === 'prompt' &&
+      g.event.actor_type !== 'hook'
+    if (isHumanPrompt) {
       turn += 1
       index += 1
       const promptEv = (g as Extract<EventGroup, { kind: 'card' }>).event
