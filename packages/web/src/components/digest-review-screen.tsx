@@ -19,6 +19,7 @@ import type {
   CodeRef,
   DigestReviewData,
   FactRef,
+  ForkAnchor,
   Task,
   TaskStatus,
 } from '@cookrew/shared'
@@ -409,6 +410,83 @@ export function DigestReviewScreen({
                   )}
                 </div>
               </section>
+
+              {/* Anchor Timeline Card */}
+              {(selectedBundle.fork_anchors ?? []).length > 0 && (
+                <section className="border border-[#2D2A20] bg-[#FFFEF5]">
+                  <div className="flex items-center justify-between border-b border-[#2D2A20] px-4 py-3.5">
+                    <span className="text-base font-bold">Anchor Timeline</span>
+                    <span className="text-xs font-medium text-[#57534E]">
+                      {(selectedBundle.fork_anchors ?? []).length} checkpoint{(selectedBundle.fork_anchors ?? []).length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  <div className="flex flex-col">
+                    {(selectedBundle.fork_anchors ?? []).map((anchor, idx) => {
+                      const anchors = selectedBundle.fork_anchors ?? []
+                      const prevAnchor = idx > 0 ? anchors[idx - 1] : null
+                      const p = anchor.payload
+                      const codeRef = p.code_ref
+                      const prevSha = prevAnchor?.payload.code_ref?.commit_sha
+                      const currSha = codeRef?.commit_sha
+                      return (
+                        <div
+                          key={anchor.id}
+                          className={`px-4 py-3 ${
+                            idx < anchors.length - 1 ? 'border-b border-[#E5E2DC]' : ''
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 shrink-0" />
+                            <span className="text-[13px] font-bold">
+                              {p.phase === 'task_complete' ? 'Task Done' : p.phase ?? 'Anchor'}
+                            </span>
+                            {codeRef?.branch && (
+                              <span className="font-mono text-[11px] text-[#9333EA]">
+                                {codeRef.branch}
+                              </span>
+                            )}
+                            {prevSha && currSha && prevSha !== currSha && (
+                              <span className="font-mono text-[10px] text-emerald-600">
+                                diff {prevSha.slice(0, 7)}..{currSha.slice(0, 7)}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[12px] text-[#57534E] ml-[18px]">
+                            {p.summary ?? ''}
+                          </p>
+                          {(p.facts ?? []).length > 0 && (
+                            <div className="mt-1.5 ml-[18px] flex flex-col gap-0.5">
+                              {(p.facts ?? []).map((f, fi) => (
+                                <span key={fi} className="text-[11px] text-[#78716C]">
+                                  &bull; {typeof f === 'object' && f !== null ? (f as FactRef).claim : String(f)}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          {(p.decisions ?? []).length > 0 && (
+                            <div className="mt-1 ml-[18px] flex flex-col gap-0.5">
+                              {(p.decisions ?? []).map((d, di) => (
+                                <span key={di} className="text-[11px] font-medium text-[#92400E]">
+                                  &#9654; {d}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          {codeRef?.paths && codeRef.paths.length > 0 && (
+                            <div className="mt-1 ml-[18px] flex flex-wrap gap-1.5">
+                              {codeRef.paths.map((fp) => (
+                                <span key={fp} className="font-mono text-[10px] text-[#9333EA] bg-[#F5F3FF] px-1.5 py-0.5 rounded">
+                                  {fp}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </section>
+              )}
 
               {/* Code References Card */}
               <section className="border border-[#2D2A20] bg-[#FFFEF5]">

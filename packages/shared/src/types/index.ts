@@ -220,11 +220,28 @@ export interface Digest {
   readonly decided_at: string | null
 }
 
+export interface ForkAnchor {
+  readonly id: number
+  readonly kind: 'anchor'
+  readonly payload: {
+    readonly name?: string
+    readonly phase?: string
+    readonly summary?: string
+    readonly facts?: readonly FactRef[]
+    readonly decisions?: readonly string[]
+    readonly code_ref?: CodeRef
+    readonly next_steps?: readonly string[]
+  }
+  readonly meta: Record<string, unknown>
+  readonly date: string
+}
+
 export interface BundleWithDetails {
   readonly bundle: Bundle
   readonly tasks: readonly Task[]
   readonly events: readonly Event[]
   readonly digest: Digest | null
+  readonly fork_anchors?: readonly ForkAnchor[]
 }
 
 export interface RecipeSummary {
