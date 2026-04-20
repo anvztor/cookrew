@@ -325,6 +325,12 @@ export function WorkspaceCenterPane({
           state from context too. */}
       <WorkflowFeedProvider value={workflowFeedValue}>
         {selectedBundle && <ActiveTaskPills />}
+        {selectedBundle?.bundle.blocked_reason && (
+          <div className="mx-5 mt-3 flex items-start gap-2.5 border border-[#DC2626] bg-[#FEF2F2] px-4 py-3 text-[13px]">
+            <span className="shrink-0 font-bold text-[#DC2626]">Blocked</span>
+            <span className="text-[#991B1B]">{selectedBundle.bundle.blocked_reason}</span>
+          </div>
+        )}
       <div className="relative flex-1 min-h-0">
         <div
           ref={scrollRef}
