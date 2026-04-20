@@ -337,8 +337,12 @@ export function DigestReviewScreen({
                       <span className="text-xs font-medium text-[#57534E]">Flags Raised</span>
                     </div>
                     <div className="flex flex-col gap-1 border border-[#2D2A20] bg-[#EFF6FF] p-3">
-                      <span className="text-[22px] font-bold">{reviewFacts.length}</span>
-                      <span className="text-xs font-medium text-[#57534E]">Fact References</span>
+                      <span className="text-[22px] font-bold">
+                        {(selectedBundle.fork_anchors ?? []).length || reviewFacts.length}
+                      </span>
+                      <span className="text-xs font-medium text-[#57534E]">
+                        {(selectedBundle.fork_anchors ?? []).length > 0 ? 'Anchors' : 'Fact References'}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -375,49 +379,15 @@ export function DigestReviewScreen({
                 </div>
               </section>
 
-              {/* Fact References Card */}
-              <section className="border border-[#2D2A20] bg-[#FFFEF5]">
-                <div className="flex items-center justify-between border-b border-[#2D2A20] px-4 py-3.5">
-                  <span className="text-base font-bold">Fact References</span>
-                  <span className="text-xs font-medium text-[#57534E]">
-                    {reviewFacts.length} reference{reviewFacts.length !== 1 ? 's' : ''}
-                  </span>
-                </div>
-                <div className="flex flex-col">
-                  {reviewFacts.length === 0 ? (
-                    <div className="p-4 text-sm text-[#57534E]">
-                      No fact references have been captured for this bundle yet.
-                    </div>
-                  ) : (
-                    reviewFacts.map((fact, index) => (
-                      <div
-                        key={fact.id}
-                        className={`flex items-center gap-2.5 px-4 py-2.5 ${
-                          index < reviewFacts.length - 1
-                            ? 'border-b border-[#E5E2DC]'
-                            : ''
-                        }`}
-                      >
-                        <FileText size={16} className="shrink-0 text-[#FFD600]" />
-                        <span className="min-w-0 flex-1 text-[13px] font-medium">
-                          {fact.claim}
-                        </span>
-                        <span className="shrink-0 text-[11px] text-[#57534E]">
-                          {fact.source_title ?? fact.captured_by}
-                        </span>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </section>
-
-              {/* Anchor Timeline Card */}
-              {(selectedBundle.fork_anchors ?? []).length > 0 && (
+              {(selectedBundle.fork_anchors ?? []).length > 0 ? (
+                /* ── Anchor Timeline: unified view (facts + code inside anchors) ── */
                 <section className="border border-[#2D2A20] bg-[#FFFEF5]">
                   <div className="flex items-center justify-between border-b border-[#2D2A20] px-4 py-3.5">
                     <span className="text-base font-bold">Anchor Timeline</span>
                     <span className="text-xs font-medium text-[#57534E]">
-                      {(selectedBundle.fork_anchors ?? []).length} checkpoint{(selectedBundle.fork_anchors ?? []).length !== 1 ? 's' : ''}
+                      {(selectedBundle.fork_anchors ?? []).length} checkpoint{(selectedBundle.fork_anchors ?? []).length !== 1 ? 's' : ''} &middot;{' '}
+                      {reviewFacts.length} fact{reviewFacts.length !== 1 ? 's' : ''} &middot;{' '}
+                      {filesChanged} file{filesChanged !== 1 ? 's' : ''}
                     </span>
                   </div>
                   <div className="flex flex-col">
@@ -435,6 +405,7 @@ export function DigestReviewScreen({
                             idx < anchors.length - 1 ? 'border-b border-[#E5E2DC]' : ''
                           }`}
                         >
+                          {/* Header: phase + branch + diff range */}
                           <div className="flex items-center gap-2 mb-1.5">
                             <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 shrink-0" />
                             <span className="text-[13px] font-bold">
@@ -445,26 +416,39 @@ export function DigestReviewScreen({
                                 {codeRef.branch}
                               </span>
                             )}
-                            {prevSha && currSha && prevSha !== currSha && (
+                            {currSha && (
                               <span className="font-mono text-[10px] text-emerald-600">
-                                diff {prevSha.slice(0, 7)}..{currSha.slice(0, 7)}
+                                {prevSha && prevSha !== currSha
+                                  ? `diff ${prevSha.slice(0, 7)}..${currSha.slice(0, 7)}`
+                                  : currSha.slice(0, 7)}
                               </span>
                             )}
                           </div>
-                          <p className="text-[12px] text-[#57534E] ml-[18px]">
+
+                          {/* Summary */}
+                          <p className="text-[12px] text-[#57534E] ml-[18px] mb-1">
                             {p.summary ?? ''}
                           </p>
+
+                          {/* Facts */}
                           {(p.facts ?? []).length > 0 && (
                             <div className="mt-1.5 ml-[18px] flex flex-col gap-0.5">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-[#A16207]">Facts</span>
                               {(p.facts ?? []).map((f, fi) => (
-                                <span key={fi} className="text-[11px] text-[#78716C]">
-                                  &bull; {typeof f === 'object' && f !== null ? (f as FactRef).claim : String(f)}
-                                </span>
+                                <div key={fi} className="flex items-start gap-1.5">
+                                  <FileText size={12} className="shrink-0 text-[#FFD600] mt-0.5" />
+                                  <span className="text-[11px] text-[#57534E]">
+                                    {typeof f === 'object' && f !== null ? (f as FactRef).claim : String(f)}
+                                  </span>
+                                </div>
                               ))}
                             </div>
                           )}
+
+                          {/* Decisions */}
                           {(p.decisions ?? []).length > 0 && (
-                            <div className="mt-1 ml-[18px] flex flex-col gap-0.5">
+                            <div className="mt-1.5 ml-[18px] flex flex-col gap-0.5">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-[#92400E]">Decisions</span>
                               {(p.decisions ?? []).map((d, di) => (
                                 <span key={di} className="text-[11px] font-medium text-[#92400E]">
                                   &#9654; {d}
@@ -472,11 +456,28 @@ export function DigestReviewScreen({
                               ))}
                             </div>
                           )}
+
+                          {/* Code paths */}
                           {codeRef?.paths && codeRef.paths.length > 0 && (
-                            <div className="mt-1 ml-[18px] flex flex-wrap gap-1.5">
-                              {codeRef.paths.map((fp) => (
-                                <span key={fp} className="font-mono text-[10px] text-[#9333EA] bg-[#F5F3FF] px-1.5 py-0.5 rounded">
-                                  {fp}
+                            <div className="mt-1.5 ml-[18px]">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-[#7C3AED] block mb-0.5">Code</span>
+                              <div className="flex flex-wrap gap-1.5">
+                                {codeRef.paths.map((fp) => (
+                                  <span key={fp} className="font-mono text-[10px] text-[#9333EA] bg-[#F5F3FF] px-1.5 py-0.5 rounded">
+                                    {fp}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Next steps */}
+                          {(p.next_steps ?? []).length > 0 && (
+                            <div className="mt-1.5 ml-[18px] flex flex-col gap-0.5">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-[#0E7490]">Next</span>
+                              {(p.next_steps ?? []).map((ns, ni) => (
+                                <span key={ni} className="text-[11px] text-[#57534E]">
+                                  &#8594; {ns}
                                 </span>
                               ))}
                             </div>
@@ -486,48 +487,83 @@ export function DigestReviewScreen({
                     })}
                   </div>
                 </section>
-              )}
-
-              {/* Code References Card */}
-              <section className="border border-[#2D2A20] bg-[#FFFEF5]">
-                <div className="flex items-center justify-between border-b border-[#2D2A20] px-4 py-3.5">
-                  <span className="text-base font-bold">Code References</span>
-                  <span className="text-xs font-medium text-[#57534E]">
-                    {filesChanged} file{filesChanged !== 1 ? 's' : ''}
-                  </span>
-                </div>
-                <div className="flex flex-col">
-                  {reviewCodeRefs.length === 0 ? (
-                    <div className="p-4 text-sm text-[#57534E]">
-                      No code references have been attached to this bundle yet.
+              ) : (
+                /* ── Fallback: separate Fact + Code cards (legacy bundles) ── */
+                <>
+                  <section className="border border-[#2D2A20] bg-[#FFFEF5]">
+                    <div className="flex items-center justify-between border-b border-[#2D2A20] px-4 py-3.5">
+                      <span className="text-base font-bold">Fact References</span>
+                      <span className="text-xs font-medium text-[#57534E]">
+                        {reviewFacts.length} reference{reviewFacts.length !== 1 ? 's' : ''}
+                      </span>
                     </div>
-                  ) : (
-                    reviewCodeRefs.flatMap((codeRef, refIndex) =>
-                      codeRef.paths.map((filePath, pathIndex) => {
-                        const isLast =
-                          refIndex === reviewCodeRefs.length - 1 &&
-                          pathIndex === codeRef.paths.length - 1
-                        return (
+                    <div className="flex flex-col">
+                      {reviewFacts.length === 0 ? (
+                        <div className="p-4 text-sm text-[#57534E]">
+                          No fact references have been captured for this bundle yet.
+                        </div>
+                      ) : (
+                        reviewFacts.map((fact, index) => (
                           <div
-                            key={`${codeRef.commit_sha}-${filePath}`}
+                            key={fact.id}
                             className={`flex items-center gap-2.5 px-4 py-2.5 ${
-                              isLast ? '' : 'border-b border-[#E5E2DC]'
+                              index < reviewFacts.length - 1 ? 'border-b border-[#E5E2DC]' : ''
                             }`}
                           >
-                            <Code size={16} className="shrink-0 text-[#9333EA]" />
-                            <span className="min-w-0 flex-1 font-mono text-xs font-medium">
-                              {filePath}
+                            <FileText size={16} className="shrink-0 text-[#FFD600]" />
+                            <span className="min-w-0 flex-1 text-[13px] font-medium">
+                              {fact.claim}
                             </span>
-                            <span className="shrink-0 font-mono text-[11px] font-medium text-emerald-600">
-                              {codeRef.commit_sha.slice(0, 7)}
+                            <span className="shrink-0 text-[11px] text-[#57534E]">
+                              {fact.source_title ?? fact.captured_by}
                             </span>
                           </div>
+                        ))
+                      )}
+                    </div>
+                  </section>
+
+                  <section className="border border-[#2D2A20] bg-[#FFFEF5]">
+                    <div className="flex items-center justify-between border-b border-[#2D2A20] px-4 py-3.5">
+                      <span className="text-base font-bold">Code References</span>
+                      <span className="text-xs font-medium text-[#57534E]">
+                        {filesChanged} file{filesChanged !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    <div className="flex flex-col">
+                      {reviewCodeRefs.length === 0 ? (
+                        <div className="p-4 text-sm text-[#57534E]">
+                          No code references have been attached to this bundle yet.
+                        </div>
+                      ) : (
+                        reviewCodeRefs.flatMap((codeRef, refIndex) =>
+                          codeRef.paths.map((filePath, pathIndex) => {
+                            const isLast =
+                              refIndex === reviewCodeRefs.length - 1 &&
+                              pathIndex === codeRef.paths.length - 1
+                            return (
+                              <div
+                                key={`${codeRef.commit_sha}-${filePath}`}
+                                className={`flex items-center gap-2.5 px-4 py-2.5 ${
+                                  isLast ? '' : 'border-b border-[#E5E2DC]'
+                                }`}
+                              >
+                                <Code size={16} className="shrink-0 text-[#9333EA]" />
+                                <span className="min-w-0 flex-1 font-mono text-xs font-medium">
+                                  {filePath}
+                                </span>
+                                <span className="shrink-0 font-mono text-[11px] font-medium text-emerald-600">
+                                  {codeRef.commit_sha.slice(0, 7)}
+                                </span>
+                              </div>
+                            )
+                          })
                         )
-                      })
-                    )
-                  )}
-                </div>
-              </section>
+                      )}
+                    </div>
+                  </section>
+                </>
+              )}
             </div>
           </main>
 
