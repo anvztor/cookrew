@@ -405,24 +405,32 @@ export function DigestReviewScreen({
                             idx < anchors.length - 1 ? 'border-b border-[#E5E2DC]' : ''
                           }`}
                         >
-                          {/* Header: phase + branch + diff range */}
+                          {/* Header: phase + branch + diff range + entry ID */}
                           <div className="flex items-center gap-2 mb-1.5">
                             <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 shrink-0" />
                             <span className="text-[13px] font-bold">
                               {p.phase === 'task_complete' ? 'Task Done' : p.phase ?? 'Anchor'}
                             </span>
+                            <span className="font-mono text-[10px] text-[#A8A29E]">#{anchor.id}</span>
                             {codeRef?.branch && (
                               <span className="font-mono text-[11px] text-[#9333EA]">
                                 {codeRef.branch}
                               </span>
                             )}
-                            {currSha && (
+                            {prevSha && currSha && prevSha !== currSha && codeRef?.repo_url ? (
+                              <a
+                                href={`https://github.com/${codeRef.repo_url.replace(/\.git$/, '').replace(/^https?:\/\/github\.com\//, '')}/compare/${prevSha}...${currSha}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="font-mono text-[10px] text-emerald-600 underline decoration-dotted hover:text-emerald-800"
+                              >
+                                diff {prevSha.slice(0, 7)}..{currSha.slice(0, 7)}
+                              </a>
+                            ) : currSha ? (
                               <span className="font-mono text-[10px] text-emerald-600">
-                                {prevSha && prevSha !== currSha
-                                  ? `diff ${prevSha.slice(0, 7)}..${currSha.slice(0, 7)}`
-                                  : currSha.slice(0, 7)}
+                                {currSha.slice(0, 7)}
                               </span>
-                            )}
+                            ) : null}
                           </div>
 
                           {/* Summary */}
