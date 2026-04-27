@@ -1,4 +1,4 @@
-import { WorkspaceScreen } from '@/components/workspace-screen'
+import { ArcadeWorkspace } from '@/components/arcade-workspace'
 
 interface PageProps {
   params: Promise<{ recipeId: string }>
@@ -6,5 +6,5 @@ interface PageProps {
 
 export default async function RecipePage({ params }: PageProps) {
   const { recipeId } = await params
-  return <WorkspaceScreen recipeId={recipeId} />
+  return <ArcadeWorkspace recipeId={recipeId} />
 }

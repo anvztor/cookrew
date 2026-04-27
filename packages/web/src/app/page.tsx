@@ -1,5 +1,5 @@
-import { HomeScreen } from '@/components/home-screen'
+import { ArcadeHome } from '@/components/arcade-pages'
 
 export default function Page() {
-  return <HomeScreen />
+  return <ArcadeHome />
 }
