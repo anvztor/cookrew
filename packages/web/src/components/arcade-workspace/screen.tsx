@@ -1,29 +1,31 @@
 /**
  * ArcadeWorkspace — main screen for /recipes/[recipeId].
  *
- * Wires the Pip-Boy/Tamagotchi components to real cookrew data:
- *   - WorkspaceData  (recipe, members, agents, bundles, selected_bundle)
- *   - useTaskStream  (per-task live state for the mission board)
- *   - useWatch       (triggers a workspace reload on any SSE event)
- *   - createBundle   (composer dock "SHIP ▶")
- *   - rerunBundle    (blocked banner)
+ * v3 Responsive shell. Mobile-first layout with slide-in drawers for
+ * the party (left) and event feed (right); on desktops (≥980px) the
+ * drawers dock as side panes. Real cookrew data flows through the
+ * existing hooks unchanged.
  *
  * Layout:
- *   ┌──────────────── TopHUD ────────────────┐
- *   │  [BlockedBanner (if any task blocked)] │
- *   ├────────┬──────────────────────────────┤
- *   │ Party  │   Mission Board       [Feed] │
- *   │ (side) │   (stage, scrolls)    (pip)  │
- *   ├────────┴──────────────────────────────┤
- *   │           Composer Dock                │
- *   └────────────────────────────────────────┘
+ *   ┌────────── CrHeader ──────────┐
+ *   │ logo · bundle  · party feed  │
+ *   ├──────────────────────────────┤
+ *   │ ┌Party┐  Stage     ┌  Feed ┐ │
+ *   │ │     │  (mission) │       │ │
+ *   │ └─────┘            └───────┘ │
+ *   ├──────────────────────────────┤
+ *   │       ComposerDock           │
+ *   └──────────────────────────────┘
+ *
+ * On mobile the side panes collapse into modal drawers controlled by
+ * the header's party / feed buttons.
  */
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { Bundle, WorkspaceData } from '@cookrew/shared'
-import { cancelTask, getWorkspaceData, rerunBundle } from '@/lib/api'
+import { cancelTask, createBundle, getWorkspaceData, rerunBundle } from '@/lib/api'
 import { useAuthContext } from '@/components/auth-provider'
 import { useWatch } from '@/hooks/use-watch'
 import { useTaskStream } from '@/hooks/use-task-stream'
@@ -31,14 +33,15 @@ import { useTaskStream } from '@/hooks/use-task-stream'
 import { AgentDetailOverlay } from './agent-detail-overlay'
 import { ArcadeSidebar } from './arcade-sidebar'
 import { ComposerDock } from './composer-dock'
+import { CrHeader } from './cr-header'
+import { CrButton, CrChip } from './cr-chrome'
+import { DEMO_WORKSPACE_DATA } from './demo-fixture'
 import { EventFeed } from './event-feed'
 import { HITLBarStrip, PromptCard, buildHitlPrompts } from './hitl-bars'
 import { MissionBoard } from './mission-board'
 import { SandboxWindow } from './sandbox-window'
 import type { PartyMember } from './mapping'
 import { TaskLiveCard } from './task-live-card'
-import { TopHUD } from './top-hud'
-import { PixelBtn } from './pixel-chrome'
 import {
   BundleReviewPopout,
   CookbookPopout,
@@ -66,6 +69,7 @@ function BlockedBanner({
   if (count === 0 && !reason) return null
   return (
     <div
+      className="cr"
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -88,17 +92,18 @@ function BlockedBanner({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          fontFamily: "var(--font-press-start-2p), 'Press Start 2P', monospace",
-          fontSize: 10,
+          fontFamily: "var(--font-silkscreen), 'Silkscreen', monospace",
+          fontSize: 12,
         }}
       >
         !
       </div>
-      <div className="pc-silk" style={{ fontSize: 10 }}>
+      <div className="cr-display" style={{ fontSize: 10 }}>
         {count > 0 ? `${count} QUEST${count > 1 ? 'S' : ''} BLOCKED` : 'BUNDLE BLOCKED'} ·{' '}
         <span
           style={{
-            fontFamily: "var(--font-jetbrains-mono), 'JetBrains Mono', monospace",
+            fontFamily:
+              "var(--font-jetbrains-mono), 'JetBrains Mono', monospace",
             fontWeight: 400,
             textTransform: 'none',
             letterSpacing: 0,
@@ -108,9 +113,9 @@ function BlockedBanner({
         </span>
       </div>
       <div style={{ flex: 1 }} />
-      <PixelBtn size="tiny" onClick={onRerun} disabled={rerunning}>
+      <CrButton size="tiny" onClick={onRerun} disabled={rerunning}>
         ↻ {rerunning ? 'RERUNNING…' : 'RERUN'}
-      </PixelBtn>
+      </CrButton>
     </div>
   )
 }
@@ -124,37 +129,63 @@ export function ArcadeWorkspace({ recipeId }: ArcadeWorkspaceProps) {
   const searchParams = useSearchParams()
   const bundleIdFromUrl = searchParams.get('bundle')
   const popoutKind = searchParams.get('popout') // 'cookbook' | 'history' | 'review' | null
+  const demoMode = searchParams.get('demo') === '1'
   const { username, accountId } = useAuthContext()
   const requestedBy = username || accountId || 'anonymous'
 
   const [data, setData] = useState<WorkspaceData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [creatingBundle, setCreatingBundle] = useState(false)
   const [rerunning, setRerunning] = useState(false)
   const [hAgent, setHAgent] = useState<string | null>(null)
   const [hTask, setHTask] = useState<string | null>(null)
   const [selectedQuestId, setSelectedQuestId] = useState<string | null>(null)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [partyOpen, setPartyOpen] = useState(false)
+  const [feedOpen, setFeedOpen] = useState(false)
   const [feedExpanded, setFeedExpanded] = useState(false)
-  const [feedOpen, setFeedOpen] = useState(true)
-  // HITL prompt visibility: default 'bar' for any blocked task; 'full'
-  // when the user clicked it open; 'dismissed' when actioned. Falls
-  // back to 'bar' for unknown ids so newly-blocked tasks surface as bars.
+  const [isWide, setIsWide] = useState(false)
   const [promptStates, setPromptStates] = useState<
     Record<string, 'bar' | 'full' | 'dismissed'>
   >({})
   const [sandboxOpen, setSandboxOpen] = useState(false)
   const [selectedMember, setSelectedMember] = useState<PartyMember | null>(null)
 
-  const startedAtRef = useRef(Date.now())
-  const [elapsedTick, setElapsedTick] = useState(0)
+  // Mirror the CSS @media (min-width: 980px) breakpoint into JS so the
+  // header drawer toggles know whether they should still flip state on
+  // desktop (where panes are docked) or only on mobile.
   useEffect(() => {
-    const id = setInterval(() => setElapsedTick((n) => n + 1), 1000)
-    return () => clearInterval(id)
+    if (typeof window === 'undefined') return
+    const mq = window.matchMedia('(min-width: 980px)')
+    const sync = () => setIsWide(mq.matches)
+    sync()
+    mq.addEventListener('change', sync)
+    return () => mq.removeEventListener('change', sync)
   }, [])
+
+  // On wide viewports the side panes are visible by default; on mobile
+  // both drawers stay closed until toggled. Reinitialise on breakpoint
+  // changes — must run before any conditional return below.
+  useEffect(() => {
+    if (isWide) {
+      setPartyOpen(true)
+      setFeedOpen(true)
+    } else {
+      setPartyOpen(false)
+      setFeedOpen(false)
+    }
+  }, [isWide])
 
   const load = useCallback(
     async (nextBundleId?: string | null, withLoading = false) => {
+      if (demoMode) {
+        // Skip the network call — render the v3 shell against fixture data
+        // so the layout / drawers / mode dial can be reviewed without a
+        // live krewhub backend running.
+        setData(DEMO_WORKSPACE_DATA)
+        if (withLoading) setIsLoading(false)
+        return
+      }
       if (withLoading) setIsLoading(true)
       setError(null)
       try {
@@ -168,15 +199,13 @@ export function ArcadeWorkspace({ recipeId }: ArcadeWorkspaceProps) {
         if (withLoading) setIsLoading(false)
       }
     },
-    [recipeId],
+    [recipeId, demoMode],
   )
 
   useEffect(() => {
     void load(bundleIdFromUrl, true)
   }, [bundleIdFromUrl, load])
 
-  // Throttle reloads — useTaskStream already handles live state, so
-  // firing load() on every SSE event just flickered the MissionBoard.
   const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => {
     return () => {
@@ -202,14 +231,14 @@ export function ArcadeWorkspace({ recipeId }: ArcadeWorkspaceProps) {
     [selectedBundle],
   )
 
-  // Live task state (per-task aggregated SSE state)
   const liveStatesReadonly = useTaskStream(recipeId, {
     bundleId: bundle?.id,
     terminalLingerMs: 0,
   })
-  const liveStates = liveStatesReadonly as Readonly<Record<string, import('@/hooks/use-task-stream').TaskLiveState>>
+  const liveStates = liveStatesReadonly as Readonly<
+    Record<string, import('@/hooks/use-task-stream').TaskLiveState>
+  >
 
-  // View models
   const humans = useMemo(
     () => humansToPartyMembers(data?.members ?? []),
     [data?.members],
@@ -228,9 +257,6 @@ export function ArcadeWorkspace({ recipeId }: ArcadeWorkspaceProps) {
     [bundle, allTasks, liveStates],
   )
 
-  // HITL prompts derived from blocked tasks. Re-tick every 30s so the
-  // ages on the bars stay roughly accurate without rebuilding on every
-  // render.
   const [hitlTick, setHitlTick] = useState(0)
   useEffect(() => {
     const id = setInterval(() => setHitlTick((n) => n + 1), 30_000)
@@ -246,7 +272,6 @@ export function ArcadeWorkspace({ recipeId }: ArcadeWorkspaceProps) {
         },
         (taskId) => liveStates[taskId]?.startedAt ?? null,
       ),
-    // hitlTick deliberately participates so age strings refresh.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [quests, liveStates, hitlTick],
   )
@@ -255,7 +280,6 @@ export function ArcadeWorkspace({ recipeId }: ArcadeWorkspaceProps) {
   )
   const hitlFullPrompts = hitlPrompts.filter((p) => promptStates[p.id] === 'full')
 
-  // Hover linking between party ↔ quest
   const linkedTaskForAgent = useCallback(
     (aid: string) =>
       quests.find((q) => q.assignee === aid.split('@')[0].toUpperCase())?.id ?? null,
@@ -274,17 +298,18 @@ export function ArcadeWorkspace({ recipeId }: ArcadeWorkspaceProps) {
   const effHTask = hTask ?? (hAgent ? linkedTaskForAgent(hAgent) : null)
 
   const online = agents.filter((a) => a.status !== 'off').length
+  const total = agents.length
   const blockedCount = quests.filter((q) => q.status === 'blocked').length
-  const elapsed = formatElapsed(elapsedTick, startedAtRef.current)
+  const cookbookHref = `/recipes/${recipeId}?popout=cookbook${
+    bundleIdFromUrl ? `&bundle=${bundleIdFromUrl}` : ''
+  }`
+  const historyHref = `/recipes/${recipeId}?popout=history${
+    bundleIdFromUrl ? `&bundle=${bundleIdFromUrl}` : ''
+  }`
   const reviewHref = bundle
     ? `/recipes/${recipeId}?popout=review&bundle=${bundle.id}`
     : null
-  const cookbookHref = `/recipes/${recipeId}?popout=cookbook${bundleIdFromUrl ? `&bundle=${bundleIdFromUrl}` : ''}`
-  const historyHref = `/recipes/${recipeId}?popout=history${bundleIdFromUrl ? `&bundle=${bundleIdFromUrl}` : ''}`
 
-  // Real counters surfaced to the composer dock's HUD. No synthetic
-  // gamification math — we show actual bundle progress: done tasks
-  // out of total, and total events seen on this bundle.
   const doneCount = useMemo(
     () => quests.filter((q) => q.status === 'done').length,
     [quests],
@@ -292,12 +317,27 @@ export function ArcadeWorkspace({ recipeId }: ArcadeWorkspaceProps) {
   const totalCount = quests.length
   const eventCount = allEvents.length
 
-  const handleBundleCreated = useCallback(
-    (bundleId: string) => {
-      router.push(`/recipes/${recipeId}?bundle=${bundleId}`)
-    },
-    [recipeId, router],
-  )
+  const handleNewBundle = useCallback(async () => {
+    if (creatingBundle) return
+    setCreatingBundle(true)
+    setError(null)
+    try {
+      const { bundle_id } = await createBundle(recipeId, {
+        prompt: '',
+        requested_by: requestedBy,
+        task_titles: [],
+      })
+      router.push(`/recipes/${recipeId}?bundle=${bundle_id}`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to create bundle')
+    } finally {
+      setCreatingBundle(false)
+    }
+  }, [creatingBundle, recipeId, requestedBy, router])
+
+  const handleTaskCreated = useCallback(() => {
+    void load(bundle?.id ?? bundleIdFromUrl, false)
+  }, [bundle?.id, bundleIdFromUrl, load])
 
   const handleRerun = useCallback(async () => {
     if (!bundle || rerunning) return
@@ -312,6 +352,10 @@ export function ArcadeWorkspace({ recipeId }: ArcadeWorkspaceProps) {
     }
   }, [bundle, rerunning, recipeId, router])
 
+  const bundleLabel = bundle
+    ? `${bundle.id.slice(0, 12).toUpperCase()} · ${bundle.status.toUpperCase()}`
+    : 'NO BUNDLE'
+
   const bundleSelector = useMemo(() => {
     if (!data?.bundles?.length) return null
     const recent = data.bundles.slice(0, 8)
@@ -322,13 +366,13 @@ export function ArcadeWorkspace({ recipeId }: ArcadeWorkspaceProps) {
           const id = e.target.value
           if (id) router.push(`/recipes/${recipeId}?bundle=${id}`)
         }}
-        className="pc-mono"
+        className="cr-mono"
         style={{
-          padding: '3px 6px',
-          fontSize: 10,
-          background: '#111',
-          color: '#FFEDB0',
-          border: '1px solid #FFEDB0',
+          padding: '4px 8px',
+          fontSize: 11,
+          background: 'var(--cream-md)',
+          color: 'var(--ink)',
+          border: '1.5px solid var(--line)',
           minWidth: 180,
         }}
       >
@@ -345,7 +389,7 @@ export function ArcadeWorkspace({ recipeId }: ArcadeWorkspaceProps) {
   if (error && !data) {
     return (
       <div
-        className="pc-root"
+        className="cr"
         style={{
           padding: 40,
           minHeight: '100vh',
@@ -353,7 +397,7 @@ export function ArcadeWorkspace({ recipeId }: ArcadeWorkspaceProps) {
           fontFamily: "var(--font-jetbrains-mono), 'JetBrains Mono', monospace",
         }}
       >
-        <div className="pc-display" style={{ fontSize: 16, marginBottom: 12 }}>
+        <div className="cr-display" style={{ fontSize: 16, marginBottom: 12 }}>
           LOAD FAILED
         </div>
         <div>{error}</div>
@@ -361,35 +405,51 @@ export function ArcadeWorkspace({ recipeId }: ArcadeWorkspaceProps) {
     )
   }
 
+  const closeDrawers = () => {
+    setPartyOpen(false)
+    setFeedOpen(false)
+  }
+
+  const togglePartyDrawer = () => {
+    if (isWide) {
+      setPartyOpen((o) => !o)
+      return
+    }
+    setFeedOpen(false)
+    setPartyOpen((o) => !o)
+  }
+
+  const toggleFeedDrawer = () => {
+    if (isWide) {
+      setFeedOpen((o) => !o)
+      return
+    }
+    setPartyOpen(false)
+    setFeedOpen((o) => !o)
+  }
+
   return (
     <div
-      className="pc-root pc-arcade-scan"
-      style={{
-        width: '100vw',
-        height: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        background: 'var(--cream)',
-        fontFamily: "var(--font-inter), Inter, sans-serif",
-        position: 'relative',
-        overflow: 'hidden',
-      }}
+      className={`cr cr-app${partyOpen ? ' party-open' : ''}${
+        feedOpen ? ' feed-open' : ''
+      }`}
+      data-screen-label="Arcade · Workspace"
     >
-      <TopHUD
-        recipe={data?.recipe ?? null}
-        selectedBundle={bundle}
-        onlineAgents={online}
-        blockedCount={blockedCount}
-        elapsed={elapsed}
-        cookbookHref={cookbookHref}
-        historyHref={historyHref}
-        reviewHref={reviewHref}
-        bundleSelector={bundleSelector}
-        onSandbox={() => setSandboxOpen(true)}
+      <CrHeader
+        variant={isWide ? 'desktop' : 'mobile'}
+        bundleLabel={bundleLabel}
+        recipeName={data?.recipe?.name ?? null}
+        online={online}
+        total={total}
+        partyOpen={partyOpen}
+        feedOpen={feedOpen}
+        onParty={togglePartyDrawer}
+        onFeed={toggleFeedDrawer}
+        onAvatar={() => router.push('/auth')}
+        username={username}
+        extra={bundleSelector}
       />
 
-      {/* Bundle-level block stays in the banner (rerun is bundle-scoped).
-          Per-task blocks surface as HITL clickbars on the mission board. */}
       {bundle?.status === 'blocked' && (
         <BlockedBanner
           count={blockedCount}
@@ -399,195 +459,285 @@ export function ArcadeWorkspace({ recipeId }: ArcadeWorkspaceProps) {
         />
       )}
 
-      <div
-        style={{ flex: 1, display: 'flex', minHeight: 0, position: 'relative' }}
-      >
-        <ArcadeSidebar
-          humans={humans}
-          agents={agents}
-          collapsed={sidebarCollapsed}
-          onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-          onHoverAgent={setHAgent}
-          highlightedAgent={effHAgent}
-          activeAgent={selectedMember?.id ?? null}
-          onSelectAgent={(m) =>
-            setSelectedMember((prev) => (prev?.id === m.id ? null : m))
-          }
-        />
-
-        {/* Stage — mission board (scrollable) */}
-        <div
-          className="pc-stage-bg"
-          style={{
-            flex: 1,
-            minWidth: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden',
-            position: 'relative',
-          }}
-        >
-          {/* Stage header */}
+      <div className="cr-stage">
+        <div className="cr-app-row" style={{ flex: 1, display: 'flex', minHeight: 0 }}>
+          {/* PARTY drawer (or docked pane on desktop). On desktop we
+              fully unmount the pane when closed so it doesn't take layout
+              space; on mobile the drawer slides off-screen so we leave it
+              mounted and disable pointer events while hidden. */}
+          {(isWide ? partyOpen : true) && (
           <div
-            style={{
-              padding: '10px 20px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              borderBottom: '1px dashed var(--line)',
-              background: 'rgba(250,248,244,0.8)',
-              backdropFilter: 'blur(4px)',
-              flexShrink: 0,
-            }}
+            className="cr-drawer left"
+            style={!isWide && !partyOpen ? { pointerEvents: 'none' } : undefined}
           >
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <div
-                className="pc-silk"
-                style={{ fontSize: 9, color: 'var(--muted)' }}
-              >
-                ▸ MISSION BOARD · BUNDLE
-              </div>
-              <div
-                className="pc-display"
-                style={{
-                  fontSize: 13,
-                  marginTop: 4,
-                  color: 'var(--ink)',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  maxWidth: '60ch',
-                }}
-                title={missionHeader.title}
-              >
-                “{missionHeader.title}”
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-              <div className="pc-chip emerald">
-                {missionHeader.clearedCount}/{missionHeader.totalCount} CLEARED
-              </div>
-              <div className="pc-chip amber">{missionHeader.workingCount} WORKING</div>
-              <div className="pc-chip rose">{missionHeader.blockedCount} BLOCKED</div>
-              <div style={{ width: 1, height: 20, background: 'var(--line-soft)' }} />
-              <PixelBtn size="tiny" onClick={() => void load(bundle?.id, false)}>
-                REFRESH
-              </PixelBtn>
-            </div>
-          </div>
-
-          {/* Board canvas — ReactFlow handles its own pan/zoom, so this
-              container is fixed-sized (no overflow auto). */}
-          <div
-            style={{
-              flex: 1,
-              minHeight: 0,
-              position: 'relative',
-              paddingRight:
-                !feedOpen || feedExpanded || selectedQuestId ? 0 : 356,
-              transition: 'padding-right 180ms ease',
-            }}
-          >
-            {isLoading && !data ? (
-              <div
-                style={{
-                  padding: 40,
-                  textAlign: 'center',
-                  color: 'var(--muted)',
-                  fontFamily: "var(--font-jetbrains-mono), 'JetBrains Mono', monospace",
-                }}
-              >
-                <div
-                  className="pc-silk"
-                  style={{ fontSize: 11, color: 'var(--ink-soft)' }}
-                >
-                  ▸ LOADING WORKSPACE…
-                </div>
-              </div>
-            ) : (
-              <MissionBoard
-                quests={quests}
-                highlightedTask={effHTask}
-                selectedTask={selectedQuestId}
-                onHoverTask={setHTask}
-                onSelectTask={(q) =>
-                  setSelectedQuestId((prev) => (prev === q.id ? null : q.id))
-                }
-              />
-            )}
-
-            {/* HITL clickbars — pinned bottom-left of the mission board. */}
-            <HITLBarStrip
-              items={hitlBars}
-              onRestore={(id) =>
-                setPromptStates((s) => ({ ...s, [id]: 'full' }))
+            <ArcadeSidebar
+              humans={humans}
+              agents={agents}
+              collapsed={false}
+              onToggleCollapse={() => setPartyOpen((o) => !o)}
+              onHoverAgent={setHAgent}
+              highlightedAgent={effHAgent}
+              activeAgent={selectedMember?.id ?? null}
+              onSelectAgent={(m) =>
+                setSelectedMember((prev) => (prev?.id === m.id ? null : m))
               }
             />
+          </div>
+          )}
 
-            {/* Floating PromptCards for any HITL prompt the user opened. */}
-            {hitlFullPrompts.map((p, i) => (
-              <PromptCard
-                key={p.id}
-                prompt={p}
-                initialX={220 + (i % 4) * 32}
-                initialY={60 + (i % 4) * 28}
-                z={25 + i}
-                onMinimize={() =>
-                  setPromptStates((s) => ({ ...s, [p.id]: 'bar' }))
+          {/* Main stage — mission board */}
+          <div
+            className="pc-stage-bg"
+            style={{
+              flex: 1,
+              minWidth: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+              position: 'relative',
+              background: 'var(--cream)',
+            }}
+          >
+            {/* Bundle title strip */}
+            <div
+              className="cr"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                padding: '12px 16px',
+                borderBottom: '2px solid var(--line)',
+                background: 'var(--cream-hi)',
+                flexShrink: 0,
+                flexWrap: 'wrap',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 3,
+                  minWidth: 0,
+                  flex: 1,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span className="cr-display" style={{ fontSize: 12 }}>
+                    {bundle ? bundle.id.slice(0, 12).toUpperCase() : 'NO BUNDLE'}
+                  </span>
+                  {bundle && <CrChip tone="amber" style={{ fontSize: 7 }}>LIVE</CrChip>}
+                </div>
+                <div
+                  style={{
+                    fontFamily: 'Inter, sans-serif',
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: 'var(--ink)',
+                    lineHeight: 1.25,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                  title={missionHeader.title}
+                >
+                  {missionHeader.title}
+                </div>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <span
+                    className="cr-mono"
+                    style={{ fontSize: 9, color: 'var(--muted)' }}
+                  >
+                    {missionHeader.totalCount} QUESTS
+                  </span>
+                  {missionHeader.clearedCount > 0 && (
+                    <CrChip tone="emerald" style={{ fontSize: 7 }}>
+                      {missionHeader.clearedCount} CLEARED
+                    </CrChip>
+                  )}
+                  {missionHeader.workingCount > 0 && (
+                    <CrChip tone="amber" style={{ fontSize: 7 }}>
+                      {missionHeader.workingCount} WORKING
+                    </CrChip>
+                  )}
+                  {missionHeader.blockedCount > 0 && (
+                    <CrChip tone="rose" style={{ fontSize: 7 }}>
+                      {missionHeader.blockedCount} BLOCKED
+                    </CrChip>
+                  )}
+                </div>
+              </div>
+              <CrButton
+                size="tiny"
+                variant="primary"
+                onClick={() => void handleNewBundle()}
+                disabled={creatingBundle}
+                title="create blank bundle"
+              >
+                ＋ {creatingBundle ? 'NEW…' : 'NEW'}
+              </CrButton>
+              <CrButton
+                size="tiny"
+                onClick={() => setSandboxOpen(true)}
+                title="open sandbox"
+              >
+                ⇱ SANDBOX
+              </CrButton>
+              <CrButton
+                size="tiny"
+                onClick={() => router.push(cookbookHref)}
+                title="open cookbook popout"
+              >
+                COOKBOOK
+              </CrButton>
+              <CrButton
+                size="tiny"
+                onClick={() => router.push(historyHref)}
+                title="open recipe history"
+              >
+                HISTORY
+              </CrButton>
+              {reviewHref && (
+                <CrButton
+                  size="tiny"
+                  variant="primary"
+                  onClick={() => router.push(reviewHref)}
+                >
+                  ▣ REPORT-IN
+                </CrButton>
+              )}
+            </div>
+
+            {/* Board canvas */}
+            <div
+              style={{
+                flex: 1,
+                minHeight: 0,
+                position: 'relative',
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
+              {isLoading && !data ? (
+                <div
+                  style={{
+                    padding: 40,
+                    textAlign: 'center',
+                    color: 'var(--muted)',
+                    fontFamily:
+                      "var(--font-jetbrains-mono), 'JetBrains Mono', monospace",
+                  }}
+                >
+                  <div
+                    className="cr-display"
+                    style={{ fontSize: 11, color: 'var(--ink-soft)' }}
+                  >
+                    LOADING WORKSPACE…
+                  </div>
+                </div>
+              ) : (
+                <MissionBoard
+                  quests={quests}
+                  highlightedTask={effHTask}
+                  selectedTask={selectedQuestId}
+                  onHoverTask={setHTask}
+                  onSelectTask={(q) =>
+                    setSelectedQuestId((prev) => (prev === q.id ? null : q.id))
+                  }
+                />
+              )}
+
+              <HITLBarStrip
+                items={hitlBars}
+                onRestore={(id) =>
+                  setPromptStates((s) => ({ ...s, [id]: 'full' }))
                 }
-                options={[
-                  {
-                    label: 'CANCEL TASK',
-                    hint: 'stops this quest · agent frees up',
-                    onPick: async () => {
-                      try {
-                        await cancelTask(p.id)
-                      } catch {
-                        // Silently swallow — task may already be cancelled
-                        // or the user lacks permission. The watch stream
-                        // will reconcile state on the next tick.
-                      }
-                      setPromptStates((s) => ({ ...s, [p.id]: 'dismissed' }))
-                    },
-                  },
-                  {
-                    label: 'KEEP CONTEXT · DISMISS',
-                    hint: 'hides bar · task stays blocked',
-                    onPick: () => {
-                      setPromptStates((s) => ({ ...s, [p.id]: 'dismissed' }))
-                    },
-                  },
-                ]}
               />
-            ))}
 
-            {/* Sandbox popout — opened by clicking the recipe chip. */}
-            {sandboxOpen && (
-              <SandboxWindow
-                recipe={data?.recipe ?? null}
-                members={data?.members ?? []}
-                agents={data?.agents ?? []}
-                onClose={() => setSandboxOpen(false)}
-              />
-            )}
+              {hitlFullPrompts.map((p, i) => (
+                <PromptCard
+                  key={p.id}
+                  prompt={p}
+                  initialX={220 + (i % 4) * 32}
+                  initialY={60 + (i % 4) * 28}
+                  z={25 + i}
+                  onMinimize={() =>
+                    setPromptStates((s) => ({ ...s, [p.id]: 'bar' }))
+                  }
+                  options={[
+                    {
+                      label: 'CANCEL TASK',
+                      hint: 'stops this quest · agent frees up',
+                      onPick: async () => {
+                        try {
+                          await cancelTask(p.id)
+                        } catch {
+                          // Silently swallow — task may already be cancelled.
+                        }
+                        setPromptStates((s) => ({ ...s, [p.id]: 'dismissed' }))
+                      },
+                    },
+                    {
+                      label: 'KEEP CONTEXT · DISMISS',
+                      hint: 'hides bar · task stays blocked',
+                      onPick: () => {
+                        setPromptStates((s) => ({ ...s, [p.id]: 'dismissed' }))
+                      },
+                    },
+                  ]}
+                />
+              ))}
 
-            {/* Agent / human detail overlay — opened by clicking a sidebar row. */}
-            {selectedMember && (
-              <AgentDetailOverlay
-                member={selectedMember}
-                currentQuest={
-                  selectedMember.taskId
-                    ? quests.find((q) => q.id === selectedMember.taskId) ?? null
-                    : null
-                }
-                onClose={() => setSelectedMember(null)}
-              />
-            )}
+              {sandboxOpen && (
+                <SandboxWindow
+                  recipe={data?.recipe ?? null}
+                  members={data?.members ?? []}
+                  agents={data?.agents ?? []}
+                  onClose={() => setSandboxOpen(false)}
+                />
+              )}
+
+              {selectedMember && (
+                <AgentDetailOverlay
+                  member={selectedMember}
+                  currentQuest={
+                    selectedMember.taskId
+                      ? quests.find((q) => q.id === selectedMember.taskId) ?? null
+                      : null
+                  }
+                  onClose={() => setSelectedMember(null)}
+                />
+              )}
+
+              {selectedQuestId &&
+                (() => {
+                  const q = quests.find((x) => x.id === selectedQuestId)
+                  if (!q) return null
+                  return (
+                    <TaskLiveCard
+                      quest={q}
+                      liveState={liveStates[selectedQuestId] ?? null}
+                      onClose={() => setSelectedQuestId(null)}
+                    />
+                  )
+                })()}
+            </div>
           </div>
 
-          {/* Pip-Boy Feed popout — hidden when MIN'd or a task-live-card overlay is open. */}
-          {feedOpen && !selectedQuestId && (
+          {/* FEED drawer (or docked pane on desktop) */}
+          {(isWide ? feedOpen : true) && (
+          <div
+            className="cr-drawer right"
+            style={!isWide && !feedOpen ? { pointerEvents: 'none' } : undefined}
+          >
             <EventFeed
+              fill
               lines={pipBoyLines}
               bundleLabel={
                 bundle ? bundle.id.slice(0, 12).toUpperCase() : 'NO BUNDLE'
@@ -598,43 +748,27 @@ export function ArcadeWorkspace({ recipeId }: ArcadeWorkspaceProps) {
               highlightedAgent={hAgent}
               connected={true}
             />
+          </div>
           )}
-
-          {/* Per-task live drill-in overlay */}
-          {selectedQuestId && (() => {
-            const q = quests.find((x) => x.id === selectedQuestId)
-            if (!q) return null
-            return (
-              <TaskLiveCard
-                quest={q}
-                liveState={liveStates[selectedQuestId] ?? null}
-                onClose={() => setSelectedQuestId(null)}
-              />
-            )
-          })()}
         </div>
+
+        {/* Mobile drawer scrim — taps close any open drawer. */}
+        <div className="cr-scrim" onClick={closeDrawers} />
       </div>
 
       <ComposerDock
-        recipeId={recipeId}
-        requestedBy={requestedBy}
+        bundleId={bundle?.id ?? null}
         agents={data?.agents ?? []}
         online={online}
         progress={{ done: doneCount, total: totalCount, events: eventCount }}
-        onBundleCreated={handleBundleCreated}
-        disabled={!data}
-        onAgentsClick={() => setSidebarCollapsed((c) => !c)}
-        onEventsClick={() => setFeedOpen((o) => !o)}
-        eventsOpen={feedOpen}
+        onTaskCreated={handleTaskCreated}
+        disabled={!data || !bundle}
+        variant={isWide ? 'desktop' : 'mobile'}
       />
 
-      {/* Pop-out overlays — URL-driven via ?popout=. They fetch their
-          own data so they can open even before the workspace is fully
-          loaded (e.g. a direct-link from the legacy route redirects). */}
+      {/* Pop-out overlays — URL-driven via ?popout=. */}
       {popoutKind === 'cookbook' && (
         <CookbookPopout
-          // Defer cookbook id resolution to the inner popout if the
-          // workspace hasn't loaded yet — it'll show a loading row.
           cookbookId={data?.recipe?.cookbook_id ?? ''}
           onClose={() => closePopout(router, recipeId, bundleIdFromUrl)}
         />
@@ -663,13 +797,4 @@ function closePopout(
 ): void {
   const q = bundleId ? `?bundle=${bundleId}` : ''
   router.replace(`/recipes/${recipeId}${q}`)
-}
-
-function formatElapsed(_tick: number, startedAt: number): string {
-  const diff = Math.max(0, Date.now() - startedAt)
-  const secs = Math.floor(diff / 1000)
-  const h = Math.floor(secs / 3600)
-  const m = Math.floor((secs % 3600) / 60)
-  const s = secs % 60
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }

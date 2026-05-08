@@ -1,455 +1,495 @@
 /**
  * ComposerDock — always-on bottom arcade cabinet input.
  *
- * Slash commands, @mentions. Mode roller selects SEED BUNDLE / SEED
- * TASK / ASK ORACLE; Enter ships the prompt for SEED BUNDLE (other
- * modes are visual-only until backend support lands).
+ * Slash commands, @mentions. Mode roller selects ASSIGN / ASK; Enter
+ * ships the prompt as a task on the currently selected blank bundle.
+ *
+ * v3 Responsive: mode dial is mounted inside a single bevelled bar
+ * with the prompt + ship button — wraps cleanly at narrow widths.
  */
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
 import type { AgentPresence } from '@cookrew/shared'
-import { createBundle } from '@/lib/api'
-import { PixelBtn } from './pixel-chrome'
+import { createTask } from '@/lib/api'
+import { CrChip, CrLED } from './cr-chrome'
 import { ModeRoller, type ComposerMode } from './mode-roller'
 
 const SLASH_COMMANDS: Array<{ cmd: string; desc: string; icon: string }> = [
-  { cmd: '/bundle', desc: 'Start a new bundle from a prompt', icon: '▷' },
-  { cmd: '/rerun', desc: 'Re-run the current blocked bundle', icon: '↻' },
-  { cmd: '/digest', desc: 'Submit current bundle for review', icon: '▣' },
-  { cmd: '/cancel', desc: 'Cancel the active bundle', icon: '✕' },
-  { cmd: '/status', desc: 'Print recipe + agent status snapshot', icon: '▦' },
+  { cmd: '/task', desc: 'Add a task to the current bundle', icon: '◆' },
+  { cmd: '/claim', desc: 'Force-claim an open quest', icon: '♦' },
+  { cmd: '/digest', desc: 'Summarize a session', icon: '▤' },
+  { cmd: '/replay', desc: 'Replay a digest as new bundle', icon: '▷' },
+  { cmd: '/spawn', desc: 'Spawn an agent on a quest', icon: '✦' },
 ]
 
 export function ComposerDock({
-  recipeId,
-  requestedBy,
+  bundleId,
   agents,
   online,
   progress,
-  onBundleCreated,
+  onTaskCreated,
   disabled,
-  onAgentsClick,
-  onEventsClick,
-  eventsOpen,
+  variant = 'desktop',
 }: {
-  recipeId: string
-  requestedBy: string
+  bundleId: string | null
   agents: readonly AgentPresence[]
   online: number
   progress: { done: number; total: number; events: number }
-  onBundleCreated: (bundleId: string) => void
+  onTaskCreated?: () => void
   disabled?: boolean
-  onAgentsClick?: () => void
-  onEventsClick?: () => void
-  eventsOpen?: boolean
+  variant?: 'mobile' | 'desktop'
 }) {
   const [text, setText] = useState('')
-  const [mode, setMode] = useState<ComposerMode>('seed')
-  const [showMenu, setShowMenu] = useState(false)
-  const [showMentions, setShowMentions] = useState(false)
+  const [mode, setMode] = useState<ComposerMode>('assign')
+  const [menu, setMenu] = useState<'slash' | 'mention' | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const textRef = useRef<HTMLTextAreaElement>(null)
+  const isMobile = variant === 'mobile'
 
   const placeholder =
     mode === 'ask'
-      ? 'ask the oracle · facts · digests · recipe history · ⏎ to query'
-      : mode === 'task'
-        ? 'describe a task · "/" for commands · "@" to mention · ⏎ to ship'
-        : 'seed a bundle · "/" for commands · "@" to mention · ⏎ to ship'
+      ? 'clarify before adding work · ⏎ to ask'
+      : 'add a task to this bundle · "/" · "@" · ⏎ to ship'
 
-  const mentions = [
-    ...agents.map((a) => ({
-      tag: '@' + a.agent_id.split('@')[0],
-      kind: 'agent' as const,
-      desc: `${a.display_name} · ${a.capabilities.length} caps`,
-    })),
-    { tag: '@party', kind: 'broadcast' as const, desc: 'all online agents' },
-  ]
+  const lastToken = (v: string) => v.split(/\s/).pop() || ''
+
+  const mentionFilter = lastToken(text).slice(1).toLowerCase()
+  const mentions = agents
+    .filter((a) => a.status !== 'offline')
+    .map((a) => ({
+      handle: a.agent_id.split('@')[0],
+      sub: `${a.display_name} · ${a.capabilities.length} caps`,
+      status: a.status,
+    }))
+    .filter(
+      (m) =>
+        !mentionFilter || m.handle.toLowerCase().startsWith(mentionFilter),
+    )
+
+  const slashFilter = lastToken(text)
+  const slashes = SLASH_COMMANDS.filter((c) =>
+    c.cmd.startsWith(slashFilter || '/'),
+  )
 
   const onChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const v = e.target.value
     setText(v)
-    const last = v.split(/\s/).pop() || ''
-    setShowMenu(last.startsWith('/'))
-    setShowMentions(last.startsWith('@'))
+    const last = lastToken(v)
+    if (last.startsWith('/')) setMenu('slash')
+    else if (last.startsWith('@')) setMenu('mention')
+    else setMenu(null)
   }
 
-  const insertCmd = (cmd: string) => {
+  const insertToken = (tok: string) => {
     const parts = text.split(/\s/)
-    parts[parts.length - 1] = cmd + ' '
+    parts[parts.length - 1] = tok + ' '
     setText(parts.join(' '))
-    setShowMenu(false)
+    setMenu(null)
     textRef.current?.focus()
   }
 
   const ship = async () => {
     const raw = text.trim()
     if (!raw || submitting) return
-    if (mode !== 'seed') {
-      // SEED TASK / ASK ORACLE aren't wired to backend APIs yet;
+    if (mode !== 'assign') {
+      // ASK isn't wired to a backend API yet;
       // surface a friendly notice instead of silently dropping input.
       setError(`${mode.toUpperCase()} mode is not wired up yet`)
       return
     }
-    const prompt = raw.replace(/^\/bundle\s+/, '').trim()
-    if (!prompt) return
+    if (!bundleId) {
+      setError('Create or select a bundle first')
+      return
+    }
+    const title = raw.replace(/^\/task\s+/, '').trim()
+    if (!title) return
     setSubmitting(true)
     setError(null)
     try {
-      const { bundle_id } = await createBundle(recipeId, {
-        prompt,
-        requested_by: requestedBy,
-        task_titles: [],
-      })
+      await createTask(bundleId, { title })
       setText('')
-      onBundleCreated(bundle_id)
+      onTaskCreated?.()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to ship bundle')
+      setError(err instanceof Error ? err.message : 'Failed to ship task')
     } finally {
       setSubmitting(false)
     }
   }
 
-  // Clear the "not wired yet" error when the user switches back to seed.
+  // Clear the "not wired yet" error when the user switches back to ASSIGN.
   useEffect(() => {
-    if (mode === 'seed') setError(null)
+    if (mode === 'assign') setError(null)
   }, [mode])
 
+  const insets =
+    typeof window !== 'undefined' && window.CR_DEVICE_INSETS
+      ? window.CR_DEVICE_INSETS
+      : { top: 0, bottom: 0, left: 0, right: 0 }
+  const padLeft = isMobile
+    ? `calc(12px + ${insets.left}px + env(safe-area-inset-left, 0px))`
+    : 18
+  const padRight = isMobile
+    ? `calc(12px + ${insets.right}px + env(safe-area-inset-right, 0px))`
+    : 18
+  const padBottom = isMobile
+    ? `calc(${insets.bottom}px + env(safe-area-inset-bottom, 0px))`
+    : 14
+
   return (
-    <div
+    <footer
+      className="cr"
       style={{
         position: 'relative',
-        borderTop: '3px solid var(--line)',
+        borderTop: '2px solid var(--line)',
         background: 'var(--cream-hi)',
-        padding: '10px 16px 12px',
+        padding: isMobile ? '10px 12px 0' : '12px 18px',
+        paddingLeft: padLeft,
+        paddingRight: padRight,
+        paddingBottom: padBottom,
         flexShrink: 0,
-        boxShadow: 'inset 0 2px 0 var(--cream-hi), inset 0 4px 0 rgba(0,0,0,0.05)',
         zIndex: 70,
       }}
     >
-      {/* Slash menu */}
-      {showMenu && (
-        <div
-          className="pc-bevel"
-          style={{
-            position: 'absolute',
-            left: 16,
-            right: 16,
-            bottom: '100%',
-            marginBottom: 6,
-            maxHeight: 280,
-            overflowY: 'auto',
-            zIndex: 80,
-          }}
-        >
+      <div style={{ position: 'relative' }}>
+        {menu === 'slash' && slashes.length > 0 && (
           <div
+            className="cr-bevel"
             style={{
-              padding: '8px 12px',
-              borderBottom: '2px solid var(--line)',
-              background: 'var(--amber-soft)',
+              position: 'absolute',
+              bottom: '100%',
+              left: 0,
+              right: 0,
+              marginBottom: 6,
+              maxHeight: 220,
+              overflowY: 'auto',
+              zIndex: 10,
+              padding: 4,
+              background: 'var(--cream-hi)',
             }}
           >
-            <div className="pc-silk" style={{ fontSize: 9 }}>
-              ▸ SLASH COMMANDS
-            </div>
-          </div>
-          {SLASH_COMMANDS.filter((c) =>
-            c.cmd.startsWith(text.split(/\s/).pop() || '/'),
-          ).map((c) => (
-            <button
-              key={c.cmd}
-              type="button"
-              onClick={() => insertCmd(c.cmd)}
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '28px 110px 1fr',
-                alignItems: 'center',
-                gap: 10,
-                width: '100%',
-                padding: '8px 12px',
-                background: 'transparent',
-                border: 0,
-                borderBottom: '1px dashed var(--line-soft)',
-                cursor: 'pointer',
-                textAlign: 'left',
-              }}
-            >
-              <span
-                className="pc-silk"
-                style={{ color: 'var(--amber-deep)', fontSize: 14 }}
-              >
-                {c.icon}
-              </span>
-              <span
-                className="pc-mono"
-                style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)' }}
-              >
-                {c.cmd}
-              </span>
-              <span style={{ fontSize: 11, color: 'var(--muted)' }}>{c.desc}</span>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Mention menu */}
-      {showMentions && (
-        <div
-          className="pc-bevel"
-          style={{
-            position: 'absolute',
-            left: 16,
-            right: 16,
-            bottom: '100%',
-            marginBottom: 6,
-            zIndex: 80,
-            maxHeight: 280,
-            overflowY: 'auto',
-          }}
-        >
-          <div
-            style={{
-              padding: '8px 12px',
-              borderBottom: '2px solid var(--line)',
-              background: 'var(--violet-soft)',
-            }}
-          >
-            <div className="pc-silk" style={{ fontSize: 9 }}>
-              ▸ MENTIONS · @
-            </div>
-          </div>
-          {mentions.map((m) => (
             <div
-              key={m.tag}
+              className="cr-kicker"
               style={{
-                display: 'grid',
-                gridTemplateColumns: '110px 1fr 70px',
-                alignItems: 'center',
-                gap: 10,
-                padding: '6px 12px',
-                borderBottom: '1px dashed var(--line-soft)',
-                fontSize: 12,
+                fontSize: 8,
+                padding: '6px 10px',
+                borderBottom: '1.5px solid var(--line-soft)',
               }}
             >
-              <span
-                className="pc-mono"
-                style={{ fontWeight: 700, color: 'var(--violet-ink)' }}
-              >
-                {m.tag}
-              </span>
-              <span style={{ color: 'var(--muted)', fontSize: 11 }}>{m.desc}</span>
-              <span className="pc-chip slate" style={{ fontSize: 7, justifySelf: 'end' }}>
-                {m.kind}
-              </span>
+              SLASH COMMANDS
             </div>
-          ))}
-        </div>
-      )}
-
-      {/* Top row — clickable chips: agents (toggle sidebar) · spacer · events (toggle feed) */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-        <button
-          type="button"
-          className="pc-chip phos"
-          onClick={(e) => {
-            e.stopPropagation()
-            onAgentsClick?.()
-          }}
-          title="show / hide agent sidebar"
-          style={{
-            fontSize: 8,
-            cursor: 'pointer',
-            border: 'none',
-            padding: '3px 8px',
-            fontFamily: 'inherit',
-            letterSpacing: 'inherit',
-          }}
-        >
-          ◉ {online} AGENTS READY
-        </button>
-        {error && (
-          <div
-            className="pc-chip rose"
-            style={{ fontSize: 9 }}
-            title={error}
-          >
-            ⚠ {error.slice(0, 60)}
+            {slashes.map((s) => (
+              <button
+                key={s.cmd}
+                type="button"
+                onClick={() => insertToken(s.cmd)}
+                style={{
+                  display: 'flex',
+                  width: '100%',
+                  alignItems: 'center',
+                  gap: 10,
+                  padding: '8px 10px',
+                  border: 'none',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                }}
+              >
+                <span style={{ fontSize: 14 }}>{s.icon}</span>
+                <span
+                  className="cr-mono"
+                  style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}
+                >
+                  {s.cmd}
+                </span>
+                <span
+                  style={{
+                    fontSize: 11,
+                    color: 'var(--muted)',
+                    flex: 1,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {s.desc}
+                </span>
+              </button>
+            ))}
           </div>
         )}
-        <div style={{ flex: 1 }} />
-        <button
-          type="button"
-          className="pc-chip phos"
-          onClick={(e) => {
-            e.stopPropagation()
-            onEventsClick?.()
-          }}
-          title={eventsOpen ? 'hide krewhub feed' : 'show krewhub feed'}
-          style={{
-            fontSize: 8,
-            cursor: 'pointer',
-            border: 'none',
-            padding: '3px 8px',
-            fontFamily: 'inherit',
-            letterSpacing: 'inherit',
-            opacity: eventsOpen === false ? 0.55 : 1,
-          }}
-        >
-          ▤ {progress.events} EVENTS TRACED
-        </button>
-      </div>
 
-      {/* Cabinet input */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'auto 1fr auto auto',
-          alignItems: 'stretch',
-          gap: 0,
-          border: '2px solid var(--line)',
-          boxShadow: 'inset 2px 2px 0 rgba(0,0,0,0.1), 4px 4px 0 var(--line)',
-          background: 'var(--cream-hi)',
-        }}
-      >
-        <ModeRoller value={mode} onChange={setMode} />
-
-        <textarea
-          ref={textRef}
-          value={text}
-          onChange={onChange}
-          rows={1}
-          disabled={disabled || submitting}
-          placeholder={disabled ? 'loading recipe…' : placeholder}
-          style={{
-            resize: 'none',
-            border: 0,
-            outline: 0,
-            padding: '14px 14px',
-            fontFamily: "var(--font-jetbrains-mono), 'JetBrains Mono', monospace",
-            fontSize: 14,
-            fontWeight: 500,
-            color: 'var(--ink)',
-            background: 'transparent',
-            minHeight: 44,
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault()
-              void ship()
-            }
-          }}
-        />
+        {menu === 'mention' && mentions.length > 0 && (
+          <div
+            className="cr-bevel"
+            style={{
+              position: 'absolute',
+              bottom: '100%',
+              left: 0,
+              right: 0,
+              marginBottom: 6,
+              maxHeight: 240,
+              overflowY: 'auto',
+              zIndex: 10,
+              padding: 4,
+              background: 'var(--cream-hi)',
+            }}
+          >
+            <div
+              className="cr-kicker"
+              style={{
+                fontSize: 8,
+                padding: '6px 10px',
+                borderBottom: '1.5px solid var(--line-soft)',
+              }}
+            >
+              PARTY · MENTION
+            </div>
+            {mentions.map((m) => {
+              const dot =
+                m.status === 'busy'
+                  ? 'var(--amber)'
+                  : m.status === 'online'
+                    ? '#4a8e3a'
+                    : 'var(--muted)'
+              return (
+                <button
+                  key={m.handle}
+                  type="button"
+                  onClick={() => insertToken('@' + m.handle)}
+                  style={{
+                    display: 'flex',
+                    width: '100%',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: '8px 10px',
+                    border: 'none',
+                    background: 'transparent',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 24,
+                      height: 24,
+                      border: '1.5px solid var(--line)',
+                      background: 'var(--cream)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      fontFamily:
+                        "var(--font-silkscreen), 'Silkscreen', monospace",
+                    }}
+                  >
+                    {m.handle.slice(0, 1).toUpperCase()}
+                  </span>
+                  <span
+                    className="cr-mono"
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: 'var(--ink)',
+                    }}
+                  >
+                    @{m.handle}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 10,
+                      color: 'var(--muted)',
+                      flex: 1,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {m.sub}
+                  </span>
+                  <span
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: '50%',
+                      background: dot,
+                      flexShrink: 0,
+                    }}
+                  />
+                </button>
+              )
+            })}
+          </div>
+        )}
 
         <div
           style={{
             display: 'flex',
-            alignItems: 'center',
-            gap: 4,
-            padding: '0 10px',
-            borderLeft: '2px solid var(--line)',
+            alignItems: 'stretch',
+            border: '2px solid var(--line)',
+            background: 'var(--cream-hi)',
+            boxShadow: '2px 2px 0 var(--line)',
           }}
-        >
-          <PixelBtn variant="ghost" size="tiny" title="attach code ref">
-            📎
-          </PixelBtn>
-          <PixelBtn variant="ghost" size="tiny" title="attach fact">
-            §
-          </PixelBtn>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => void ship()}
-          disabled={disabled || submitting || !text.trim()}
-          style={{
-            border: 0,
-            borderLeft: '2px solid var(--line)',
-            background: submitting ? 'var(--dim)' : 'var(--amber-deep)',
-            color: '#fff',
-            padding: '0 20px',
-            fontFamily: "var(--font-press-start-2p), 'Press Start 2P', monospace",
-            fontSize: 11,
-            letterSpacing: 1,
-            cursor: submitting ? 'wait' : 'pointer',
-            boxShadow:
-              'inset 1px 1px 0 rgba(255,255,255,0.35), inset -2px -2px 0 rgba(0,0,0,0.2)',
-            opacity: disabled || !text.trim() ? 0.6 : 1,
-          }}
-        >
-          {submitting ? '…' : 'SHIP ▶'}
-        </button>
-      </div>
-
-      {/* Hints row — quest progress lives here now (was top-right) */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 14,
-          marginTop: 8,
-          fontSize: 10,
-          color: 'var(--muted)',
-          fontFamily: "var(--font-jetbrains-mono), 'JetBrains Mono', monospace",
-        }}
-      >
-        <span>
-          <kbd style={kbdS}>/</kbd> commands
-        </span>
-        <span>
-          <kbd style={kbdS}>@</kbd> mentions
-        </span>
-        <span>
-          <kbd style={kbdS}>⇧⏎</kbd> newline
-        </span>
-        <span>
-          <kbd style={kbdS}>⏎</kbd> ship
-        </span>
-        <div style={{ flex: 1 }} />
-        <span className="pc-mono" style={{ color: 'var(--muted)' }}>
-          {progress.total > 0 ? (
-            <>
-              QUESTS{' '}
-              <span style={{ color: 'var(--amber-deep)', fontWeight: 700 }}>
-                {progress.done}/{progress.total}
-              </span>
-            </>
-          ) : (
-            <span>no quests yet</span>
-          )}
-        </span>
-        <div
-          style={{
-            width: 80,
-            height: 6,
-            background: 'var(--cream-md)',
-            border: '1.5px solid var(--line)',
-          }}
-          title="bundle completion"
         >
           <div
             style={{
-              height: '100%',
-              width:
-                progress.total > 0
-                  ? `${Math.min(100, (progress.done / progress.total) * 100)}%`
-                  : '0%',
-              background: 'var(--xp)',
-              transition: 'width 300ms linear',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 4,
+              borderRight: '1.5px solid var(--line)',
+              background: 'var(--cream-md)',
+              flexShrink: 0,
             }}
-          />
+          >
+            <ModeRoller value={mode} onChange={setMode} variant={variant} />
+          </div>
+
+          <div
+            style={{
+              position: 'relative',
+              flex: 1,
+              minWidth: 0,
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'stretch',
+                flex: 1,
+                minWidth: 0,
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setMenu(menu === 'slash' ? null : 'slash')}
+                title="slash commands"
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                  padding: '0 10px',
+                  fontFamily:
+                    "var(--font-silkscreen), 'Silkscreen', monospace",
+                  fontSize: 14,
+                  fontWeight: 700,
+                  color:
+                    menu === 'slash' ? 'var(--amber-deep)' : 'var(--muted)',
+                  flexShrink: 0,
+                  alignSelf: 'stretch',
+                }}
+              >
+                /
+              </button>
+              <textarea
+                ref={textRef}
+                value={text}
+                onChange={onChange}
+                rows={1}
+                disabled={disabled || submitting}
+                placeholder={disabled ? 'create/select a bundle first…' : placeholder}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    void ship()
+                  }
+                }}
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  alignSelf: 'stretch',
+                  border: 'none',
+                  background: 'transparent',
+                  padding: isMobile ? '12px 10px 12px 0' : '14px 12px 14px 0',
+                  fontFamily:
+                    "var(--font-jetbrains-mono), 'JetBrains Mono', monospace",
+                  fontSize: 13,
+                  color: 'var(--ink)',
+                  resize: 'none',
+                  outline: 'none',
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => void ship()}
+                disabled={disabled || submitting || !text.trim()}
+                title="ship ⏎"
+                style={{
+                  width: isMobile ? 56 : 92,
+                  flexShrink: 0,
+                  border: 'none',
+                  borderLeft: '1.5px solid var(--line)',
+                  background: text.trim() ? 'var(--amber)' : 'var(--cream-md)',
+                  color: text.trim() ? '#1A1408' : 'var(--muted)',
+                  fontFamily:
+                    "var(--font-silkscreen), 'Silkscreen', monospace",
+                  fontSize: isMobile ? 14 : 11,
+                  fontWeight: 700,
+                  letterSpacing: 0.5,
+                  cursor:
+                    submitting || !text.trim() ? 'default' : 'pointer',
+                  transition: 'background 120ms ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                }}
+              >
+                {submitting ? '…' : isMobile ? '▶' : (
+                  <>
+                    <span>SHIP</span>
+                    <span>▶</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
-  )
-}
 
-const kbdS: React.CSSProperties = {
-  fontFamily: "var(--font-jetbrains-mono), 'JetBrains Mono', monospace",
-  fontSize: 10,
-  border: '1px solid var(--line-soft)',
-  padding: '1px 5px',
-  background: 'var(--cream-md)',
-  color: 'var(--ink)',
+      {!isMobile && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            marginTop: 8,
+            paddingTop: 8,
+            borderTop: '1.5px dashed var(--line-soft)',
+          }}
+        >
+          <CrLED state="on" />
+          <span
+            className="cr-mono"
+            style={{ fontSize: 10, color: 'var(--muted)' }}
+          >
+            {online} AGENT{online === 1 ? '' : 'S'} READY
+            {progress.total > 0 && (
+              <>
+                {' · '}
+                <span style={{ color: 'var(--amber-deep)', fontWeight: 700 }}>
+                  {progress.done}/{progress.total}
+                </span>{' '}
+                CLEARED
+              </>
+            )}
+          </span>
+          <span style={{ flex: 1 }} />
+          {error && (
+            <CrChip tone="rose" style={{ fontSize: 9 }}>
+              ⚠ {error.slice(0, 60)}
+            </CrChip>
+          )}
+          <CrChip tone="slate">⌘K SLASH</CrChip>
+          <CrChip tone="slate">@ MENTION</CrChip>
+          <CrChip tone="slate">↵ SHIP</CrChip>
+        </div>
+      )}
+    </footer>
+  )
 }

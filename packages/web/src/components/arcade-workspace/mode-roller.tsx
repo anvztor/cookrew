@@ -1,15 +1,15 @@
 /**
  * ModeRoller — 3D cylinder dial for the composer dock.
  *
- * Cycles SEED BUNDLE / SEED TASK / ASK ORACLE. Click to advance,
- * right-click to step back, drag vertically or scroll to spin the
- * drum, releases snap to the nearest face.
+ * Cycles ASSIGN / ASK. Click to advance, right-click to step
+ * back, drag vertically or scroll to spin the drum, releases snap to
+ * the nearest face.
  */
 'use client'
 
 import { useRef, useState } from 'react'
 
-export type ComposerMode = 'seed' | 'task' | 'ask'
+export type ComposerMode = 'assign' | 'ask'
 
 export interface ComposerModeMeta {
   readonly v: ComposerMode
@@ -20,42 +20,42 @@ export interface ComposerModeMeta {
 
 export const COMPOSER_MODES: readonly ComposerModeMeta[] = [
   {
-    v: 'seed',
-    l: 'SEED BUNDLE',
-    tip: 'start a new bundle (unit of work)',
-    bg: '#FFD600',
-  },
-  {
-    v: 'task',
-    l: 'SEED TASK',
-    tip: 'start a single task under an existing bundle',
-    bg: '#9DE3C5',
+    v: 'assign',
+    l: 'ASSIGN',
+    tip: 'send one task to one agent',
+    bg: '#A9E4C2',
   },
   {
     v: 'ask',
-    l: 'ASK ORACLE',
-    tip: 'query facts · no work spawned',
-    bg: '#C7B6F5',
+    l: 'ASK',
+    tip: 'clarify before agents act',
+    bg: '#F5F0E8',
   },
 ]
 
-const FACES = 8
-const FACE_H = 26
-const FACE_ANGLE = 360 / FACES
-const RADIUS = (FACE_H / 2) / Math.tan(Math.PI / FACES)
-const VIEWPORT_H = Math.round(RADIUS * 2 + 4)
-const ROLLER_W = 150
+interface ModeRollerOptions {
+  readonly variant?: 'mobile' | 'desktop'
+}
 
 export function ModeRoller({
   value,
   onChange,
+  variant = 'desktop',
 }: {
   value: ComposerMode
   onChange: (next: ComposerMode) => void
-}) {
+} & ModeRollerOptions) {
   const N = COMPOSER_MODES.length
   const idx = Math.max(0, COMPOSER_MODES.findIndex((m) => m.v === value))
   const mode = COMPOSER_MODES[idx] ?? COMPOSER_MODES[0]
+
+  const isMobile = variant === 'mobile'
+  const FACES = Math.max(N, 8)
+  const FACE_H = isMobile ? 22 : 26
+  const FACE_ANGLE = 360 / FACES
+  const RADIUS = FACE_H / 2 / Math.tan(Math.PI / FACES)
+  const VIEWPORT_H = Math.round(RADIUS * 2 + 4)
+  const ROLLER_W = isMobile ? 116 : 144
 
   const [animating, setAnimating] = useState(false)
   const [drag, setDrag] = useState<{ startY: number; dy: number; moved: boolean } | null>(null)
@@ -109,8 +109,12 @@ export function ModeRoller({
   }
 
   const dragSteps = drag ? Math.max(-1.6, Math.min(1.6, -drag.dy / FACE_H)) : 0
-  const virtualIdx = idx + dragSteps
-  const drumAngle = -virtualIdx * FACE_ANGLE
+  // Faces are positioned by `slot * FACE_ANGLE` where `slot` is already
+  // relative to `idx` (slot=0 is the centered face). Adding `-idx*FACE_ANGLE`
+  // here would double-rotate the drum and leave the centered face blank when
+  // N is small (3 modes triggered the visible regression). The drum only
+  // needs to track the live drag offset.
+  const drumAngle = -dragSteps * FACE_ANGLE
   const drumTransition = drag
     ? 'none'
     : animating
@@ -168,7 +172,55 @@ export function ModeRoller({
             let slot = i - idx
             if (slot > N / 2) slot -= N
             if (slot < -N / 2) slot += N
-            return <Face key={m.v} m={m} slot={slot} isCenter={slot === 0} />
+            const angle = slot * FACE_ANGLE
+            const isCenter = slot === 0
+            return (
+              <div
+                key={m.v}
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  right: 0,
+                  top: '50%',
+                  height: FACE_H,
+                  marginTop: -FACE_H / 2,
+                  transform: `rotateX(${angle}deg) translateZ(${RADIUS}px)`,
+                  backfaceVisibility: 'hidden',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  background: isCenter ? 'var(--amber-soft)' : 'var(--cream-hi)',
+                  borderTop: '1px dashed rgba(45,42,32,0.18)',
+                  borderBottom: '1px dashed rgba(45,42,32,0.18)',
+                  boxSizing: 'border-box',
+                }}
+              >
+                <span
+                  style={{
+                    width: 8,
+                    height: 8,
+                    background: m.bg,
+                    boxShadow:
+                      'inset -1px -1px 0 rgba(0,0,0,0.25), inset 1px 1px 0 rgba(255,255,255,0.6)',
+                    flexShrink: 0,
+                  }}
+                />
+                <span
+                  style={{
+                    fontFamily:
+                      "var(--font-silkscreen), 'Silkscreen', monospace",
+                    fontSize: 10,
+                    fontWeight: 700,
+                    letterSpacing: 0.5,
+                    color: 'var(--ink)',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {m.l}
+                </span>
+              </div>
+            )
           })}
         </div>
       </div>
@@ -268,62 +320,6 @@ export function ModeRoller({
       >
         {idx + 1}/{N}
       </div>
-    </div>
-  )
-}
-
-function Face({
-  m,
-  slot,
-  isCenter,
-}: {
-  m: ComposerModeMeta
-  slot: number
-  isCenter: boolean
-}) {
-  const angle = slot * FACE_ANGLE
-  return (
-    <div
-      style={{
-        position: 'absolute',
-        left: 0,
-        right: 0,
-        top: '50%',
-        height: FACE_H,
-        marginTop: -FACE_H / 2,
-        transform: `rotateX(${angle}deg) translateZ(${RADIUS}px)`,
-        backfaceVisibility: 'hidden',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 6,
-        background: isCenter ? 'var(--amber-cream)' : 'var(--cream-hi)',
-        borderTop: '1px dashed rgba(45,42,32,0.18)',
-        borderBottom: '1px dashed rgba(45,42,32,0.18)',
-        boxSizing: 'border-box',
-      }}
-    >
-      <span
-        style={{
-          width: 8,
-          height: 8,
-          background: m.bg,
-          boxShadow:
-            'inset -1px -1px 0 rgba(0,0,0,0.25), inset 1px 1px 0 rgba(255,255,255,0.6)',
-          flexShrink: 0,
-        }}
-      />
-      <span
-        style={{
-          fontFamily: "var(--font-press-start-2p), 'Press Start 2P', monospace",
-          fontSize: 9,
-          letterSpacing: 0.5,
-          color: 'var(--ink)',
-          whiteSpace: 'nowrap',
-        }}
-      >
-        {m.l}
-      </span>
     </div>
   )
 }

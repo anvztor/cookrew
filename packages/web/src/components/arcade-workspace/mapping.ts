@@ -445,7 +445,7 @@ export function buildMissionHeader(
   ).length
   return {
     bundleId: bundle?.id ?? null,
-    title: bundle?.prompt ?? 'No bundle selected — seed one below',
+    title: bundle ? bundle.prompt.trim() || 'Blank bundle' : 'No bundle selected',
     status: bundle?.status ?? 'none',
     clearedCount: cleared,
     workingCount: working,

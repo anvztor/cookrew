@@ -440,7 +440,7 @@ function MissionBoardInner({
           ▸ NO QUESTS YET
         </div>
         <div style={{ fontSize: 12 }}>
-          Seed a bundle below with a prompt and the planner will decompose it into quests.
+          This bundle is blank. Add tasks from the composer below.
         </div>
       </div>
     )

@@ -37,9 +37,14 @@ async function requestJson<T>(
 
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as
-      | { error?: string; detail?: string }
+      | { error?: string; detail?: string | { code?: string; message?: string } }
       | null
-    throw new ApiError(body?.error ?? body?.detail ?? 'Request failed', response.status)
+    const detail = body?.error ?? body?.detail
+    const message =
+      typeof detail === 'string'
+        ? detail
+        : detail?.message ?? detail?.code ?? 'Request failed'
+    throw new ApiError(message, response.status)
   }
 
   return (await response.json()) as T
@@ -80,6 +85,23 @@ export async function createBundle(
       tasks: input.task_titles.map(title => ({ title })),
     }),
   })
+}
+
+export async function createTask(
+  bundleId: string,
+  input: { title: string; description?: string | null; depends_on_task_ids?: readonly string[] }
+): Promise<{ task: { id: string; status: string }; sandbox?: unknown }> {
+  return requestJson<{ task: { id: string; status: string }; sandbox?: unknown }>(
+    `/api/v1/bundles/${bundleId}/tasks`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        title: input.title,
+        description: input.description ?? null,
+        depends_on_task_ids: input.depends_on_task_ids ?? [],
+      }),
+    }
+  )
 }
 
 export async function getDigestReviewData(

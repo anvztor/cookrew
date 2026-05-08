@@ -41,6 +41,7 @@ export function EventFeed({
   onClose,
   highlightedAgent,
   connected,
+  fill = false,
 }: {
   lines: readonly PipBoyLine[]
   bundleLabel: string
@@ -50,6 +51,8 @@ export function EventFeed({
   onClose?: () => void
   highlightedAgent: string | null
   connected: boolean
+  /** When true, the feed fills its parent (used inside the drawer pane). */
+  fill?: boolean
 }) {
   const [filter, setFilter] = useState('ALL')
   const filters = ['ALL', 'TOOL', 'THINK', 'MILESTONE', 'WARN']
@@ -71,15 +74,24 @@ export function EventFeed({
   return (
     <div
       style={{
-        position: 'absolute',
-        right: expanded ? 0 : 16,
-        top: expanded ? 0 : 16,
-        bottom: expanded ? 0 : 16,
-        width: expanded ? 'min(680px, 55%)' : 340,
+        ...(fill
+          ? {
+              position: 'relative',
+              width: '100%',
+              height: '100%',
+            }
+          : {
+              position: 'absolute',
+              right: expanded ? 0 : 16,
+              top: expanded ? 0 : 16,
+              bottom: expanded ? 0 : 16,
+              width: expanded ? 'min(680px, 55%)' : 340,
+              transition:
+                'width 200ms ease, right 200ms ease, top 200ms ease, bottom 200ms ease',
+            }),
         zIndex: 20,
         display: 'flex',
         flexDirection: 'column',
-        transition: 'width 200ms ease, right 200ms ease, top 200ms ease, bottom 200ms ease',
       }}
     >
       <div
