@@ -33,7 +33,8 @@ function isHookEvent(event: Event): boolean {
 
 function hookSourceLabel(event: Event): string | null {
   if (!isHookEvent(event)) return null
-  const source = event.payload?._source
+  const payload = event.payload as Record<string, unknown> | null
+  const source = payload?._source
   return typeof source === 'string' ? source : null
 }
 
@@ -143,7 +144,11 @@ export function EventCard({
         </p>
       )}
 
-      {hook && expanded ? <HookPayloadDetails payload={event.payload} /> : null}
+      {hook && expanded ? (
+        <HookPayloadDetails
+          payload={event.payload as Readonly<Record<string, unknown>> | null}
+        />
+      ) : null}
     </article>
   )
 }
@@ -151,8 +156,9 @@ export function EventCard({
 function HookPayloadDetails({
   payload,
 }: {
-  readonly payload: Readonly<Record<string, unknown>>
+  readonly payload: Readonly<Record<string, unknown>> | null
 }) {
+  if (!payload) return null
   const toolName = typeof payload.tool_name === 'string' ? payload.tool_name : ''
   const cwd = typeof payload.cwd === 'string' ? payload.cwd : ''
   const sessionId =

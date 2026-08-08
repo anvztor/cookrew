@@ -108,6 +108,9 @@ function agent(
     status,
     lastHeartbeatAt: isoMinutesAgo(heartbeatMinutesAgo),
     currentTaskId,
+    ownerUsername: null,
+    mintTxHash: null,
+    mintTokenId: null,
   }
 }
 
@@ -253,7 +256,6 @@ function event(
     sequence: 0,
     facts,
     codeRefs,
-    payload: {},
     createdAt: isoMinutesAgo(createdMinutesAgo),
     expiresAt: null,
   }
@@ -427,7 +429,6 @@ export function createBundleInDemo(input: {
     payload: null,
     sequence: 0,
     createdAt: now,
-    payload: {},
     expiresAt: null,
   }
 
@@ -445,7 +446,6 @@ export function createBundleInDemo(input: {
     payload: null,
     sequence: 0,
     createdAt: now,
-    payload: {},
     expiresAt: null,
   }
 
@@ -514,7 +514,6 @@ export function decideDigestInDemo(input: {
     payload: null,
     sequence: 0,
     createdAt: decidedAt,
-    payload: {},
     expiresAt: null,
   }
 
@@ -583,7 +582,6 @@ export function rerunBundleInDemo(input: {
     payload: null,
     sequence: 0,
     createdAt: now,
-    payload: {},
     expiresAt: null,
   }
 
@@ -654,7 +652,6 @@ export function submitDigestInDemo(input: {
     payload: null,
     sequence: 0,
     createdAt: submittedAt,
-    payload: {},
     expiresAt: null,
   }
 
